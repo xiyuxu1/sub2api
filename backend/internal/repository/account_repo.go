@@ -856,9 +856,11 @@ func (r *accountRepository) accountListFilteredQuery(platform, accountType, stat
 
 func (r *accountRepository) ListWithFilters(ctx context.Context, params pagination.PaginationParams, platform, accountType, status, search string, groupID int64, privacyMode string) ([]service.Account, *pagination.PaginationResult, error) {
 	q := r.accountListFilteredQuery(platform, accountType, status, search, groupID, privacyMode)
-	// fork: 普通用户的列表只见自己的 + 别人公开的。
+	// fork: 普通用户的列表只见【自己的】账号。
+	// 暂不含别人公开的账号——现有 DTO 的凭证脱敏不彻底（header_overrides/extra 会漏，外审 P1），
+	// 跨用户展示需要专门的字段白名单 DTO，留待"让同伴可见"功能再做。is_public 字段保留。
 	if uid, ok := authctx.NonAdminOwner(ctx); ok {
-		q = q.Where(dbaccount.Or(dbaccount.OwnerUserIDEQ(uid), dbaccount.IsPublicEQ(true)))
+		q = q.Where(dbaccount.OwnerUserIDEQ(uid))
 	}
 	// Clone before Count so interceptor-appended predicates (SoftDeleteMixin's
 	// deleted_at IS NULL) don't accumulate on the shared builder and pollute the

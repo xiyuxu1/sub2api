@@ -26,12 +26,10 @@ var accountOwnerSafeRoutes = map[string]struct{}{
 	"POST /api/v1/admin/accounts/:id/test":                {},
 	"POST /api/v1/admin/accounts/:id/refresh":             {},
 	"POST /api/v1/admin/accounts/:id/apply-oauth-credentials": {},
-	"POST /api/v1/admin/accounts/:id/clear-error":         {},
-	"GET /api/v1/admin/accounts/:id/stats":                {},
 	"GET /api/v1/admin/accounts/:id/usage":                {},
-	"GET /api/v1/admin/accounts/:id/today-stats":          {},
-	"POST /api/v1/admin/accounts/today-stats/batch":       {},
 	"GET /api/v1/admin/accounts/:id/models":               {},
+	// 注意：clear-error / stats / today-stats / today-stats/batch 在调用 owner 化的
+	// GetByID 之前就按 id 改/读，绕过收口（外审 P1），故不放行，保持 admin-only。
 	// Claude/Anthropic OAuth 与 setup-token 导入流程（无账号归属，仅生成 URL / 交换 code；
 	// 最终建号仍走上面 owner 收口的 POST /accounts）。
 	"POST /api/v1/admin/accounts/generate-auth-url":            {},

@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/pkg/authctx"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
@@ -502,6 +503,15 @@ func buildAccountForCreate(input *CreateAccountInput, accountExtra map[string]an
 }
 
 func (s *adminServiceImpl) CreateAccount(ctx context.Context, input *CreateAccountInput) (*Account, error) {
+	// fork: 普通用户自助建号必须是"惰性"的——不进任何分组、不绑代理、不可调度，
+	// 否则可把指向自控上游的账号注入共享池、截获他人请求（外审 P0）。进池由 admin 审核后在后台操作。
+	nonAdminCreate := false
+	if _, ok := authctx.NonAdminOwner(ctx); ok {
+		nonAdminCreate = true
+		input.SkipDefaultGroupBind = true
+		input.GroupIDs = nil
+		input.ProxyID = nil
+	}
 	accountExtra, err := normalizeOpenAILongContextBillingExtra(input.Platform, input.Extra)
 	if err != nil {
 		return nil, err
@@ -542,6 +552,9 @@ func (s *adminServiceImpl) CreateAccount(ctx context.Context, input *CreateAccou
 	account, err := buildAccountForCreate(input, accountExtra)
 	if err != nil {
 		return nil, err
+	}
+	if nonAdminCreate {
+		account.Schedulable = false // 普通用户建号默认不参与调度，等 admin 审核
 	}
 	if err := s.accountRepo.Create(ctx, account); err != nil {
 		return nil, err
@@ -587,9 +600,15 @@ type accountProbeEnabledAtomicUpdater interface {
 }
 
 func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *UpdateAccountInput) (*Account, error) {
+	// GetByID 对普通用户已按 owner 收口：非本人 → NotFound。
 	account, err := s.accountRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
+	}
+	// fork: 普通用户不得通过编辑改变分组/代理绑定（避免把自控上游塞进共享池，外审 P0）。
+	if _, ok := authctx.NonAdminOwner(ctx); ok {
+		input.GroupIDs = nil
+		input.ProxyID = nil
 	}
 	var normalizedExtra map[string]any
 	if input.Extra != nil {
