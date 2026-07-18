@@ -255,6 +255,10 @@ func init() {
 	accountDescSessionWindowStatus := accountFields[25].Descriptor()
 	// account.SessionWindowStatusValidator is a validator for the "session_window_status" field. It is called by the builders before save.
 	account.SessionWindowStatusValidator = accountDescSessionWindowStatus.Validators[0].(func(string) error)
+	// accountDescIsPublic is the schema descriptor for is_public field.
+	accountDescIsPublic := accountFields[29].Descriptor()
+	// account.DefaultIsPublic holds the default value on creation for the is_public field.
+	account.DefaultIsPublic = accountDescIsPublic.Default.(bool)
 	accountgroupFields := schema.AccountGroup{}.Fields()
 	_ = accountgroupFields
 	// accountgroupDescPriority is the schema descriptor for priority field.
@@ -1097,6 +1101,10 @@ func init() {
 	groupDescRpmLimit := groupFields[45].Descriptor()
 	// group.DefaultRpmLimit holds the default value on creation for the rpm_limit field.
 	group.DefaultRpmLimit = groupDescRpmLimit.Default.(int)
+	// groupDescIsPublic is the schema descriptor for is_public field.
+	groupDescIsPublic := groupFields[47].Descriptor()
+	// group.DefaultIsPublic holds the default value on creation for the is_public field.
+	group.DefaultIsPublic = groupDescIsPublic.Default.(bool)
 	idempotencyrecordMixin := schema.IdempotencyRecord{}.Mixin()
 	idempotencyrecordMixinFields0 := idempotencyrecordMixin[0].Fields()
 	_ = idempotencyrecordMixinFields0
@@ -1591,6 +1599,10 @@ func init() {
 	proxyDescExpiryWarnDays := proxyFields[10].Descriptor()
 	// proxy.DefaultExpiryWarnDays holds the default value on creation for the expiry_warn_days field.
 	proxy.DefaultExpiryWarnDays = proxyDescExpiryWarnDays.Default.(int)
+	// proxyDescIsPublic is the schema descriptor for is_public field.
+	proxyDescIsPublic := proxyFields[12].Descriptor()
+	// proxy.DefaultIsPublic holds the default value on creation for the is_public field.
+	proxy.DefaultIsPublic = proxyDescIsPublic.Default.(bool)
 	redeemcodeFields := schema.RedeemCode{}.Fields()
 	_ = redeemcodeFields
 	// redeemcodeDescCode is the schema descriptor for code field.

@@ -81,6 +81,10 @@ type Account struct {
 	ParentAccountID *int64 `json:"parent_account_id,omitempty"`
 	// 'global' (default) or 'spark' (shadow reads codex_bengalfox).
 	QuotaDimension account.QuotaDimension `json:"quota_dimension,omitempty"`
+	// Owner user id (fork). NULL = system/admin legacy.
+	OwnerUserID *int64 `json:"owner_user_id,omitempty"`
+	// Management visibility (fork). true = visible to other non-admin users.
+	IsPublic bool `json:"is_public,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the AccountQuery when eager-loading is set.
 	Edges        AccountEdges `json:"edges"`
@@ -171,11 +175,11 @@ func (*Account) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case account.FieldCredentials, account.FieldExtra:
 			values[i] = new([]byte)
-		case account.FieldAutoPauseOnExpired, account.FieldSchedulable:
+		case account.FieldAutoPauseOnExpired, account.FieldSchedulable, account.FieldIsPublic:
 			values[i] = new(sql.NullBool)
 		case account.FieldRateMultiplier:
 			values[i] = new(sql.NullFloat64)
-		case account.FieldID, account.FieldProxyID, account.FieldProxyFallbackOriginID, account.FieldConcurrency, account.FieldLoadFactor, account.FieldPriority, account.FieldParentAccountID:
+		case account.FieldID, account.FieldProxyID, account.FieldProxyFallbackOriginID, account.FieldConcurrency, account.FieldLoadFactor, account.FieldPriority, account.FieldParentAccountID, account.FieldOwnerUserID:
 			values[i] = new(sql.NullInt64)
 		case account.FieldName, account.FieldNotes, account.FieldPlatform, account.FieldType, account.FieldStatus, account.FieldErrorMessage, account.FieldTempUnschedulableReason, account.FieldSessionWindowStatus, account.FieldQuotaDimension:
 			values[i] = new(sql.NullString)
@@ -409,6 +413,19 @@ func (_m *Account) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.QuotaDimension = account.QuotaDimension(value.String)
 			}
+		case account.FieldOwnerUserID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field owner_user_id", values[i])
+			} else if value.Valid {
+				_m.OwnerUserID = new(int64)
+				*_m.OwnerUserID = value.Int64
+			}
+		case account.FieldIsPublic:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field is_public", values[i])
+			} else if value.Valid {
+				_m.IsPublic = value.Bool
+			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -601,6 +618,14 @@ func (_m *Account) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("quota_dimension=")
 	builder.WriteString(fmt.Sprintf("%v", _m.QuotaDimension))
+	builder.WriteString(", ")
+	if v := _m.OwnerUserID; v != nil {
+		builder.WriteString("owner_user_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	builder.WriteString("is_public=")
+	builder.WriteString(fmt.Sprintf("%v", _m.IsPublic))
 	builder.WriteByte(')')
 	return builder.String()
 }

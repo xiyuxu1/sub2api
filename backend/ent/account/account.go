@@ -78,6 +78,10 @@ const (
 	FieldParentAccountID = "parent_account_id"
 	// FieldQuotaDimension holds the string denoting the quota_dimension field in the database.
 	FieldQuotaDimension = "quota_dimension"
+	// FieldOwnerUserID holds the string denoting the owner_user_id field in the database.
+	FieldOwnerUserID = "owner_user_id"
+	// FieldIsPublic holds the string denoting the is_public field in the database.
+	FieldIsPublic = "is_public"
 	// EdgeGroups holds the string denoting the groups edge name in mutations.
 	EdgeGroups = "groups"
 	// EdgeProxy holds the string denoting the proxy edge name in mutations.
@@ -162,6 +166,8 @@ var Columns = []string{
 	FieldSessionWindowStatus,
 	FieldParentAccountID,
 	FieldQuotaDimension,
+	FieldOwnerUserID,
+	FieldIsPublic,
 }
 
 var (
@@ -220,6 +226,8 @@ var (
 	DefaultSchedulable bool
 	// SessionWindowStatusValidator is a validator for the "session_window_status" field. It is called by the builders before save.
 	SessionWindowStatusValidator func(string) error
+	// DefaultIsPublic holds the default value on creation for the "is_public" field.
+	DefaultIsPublic bool
 )
 
 // QuotaDimension defines the type for the "quota_dimension" enum field.
@@ -399,6 +407,16 @@ func ByParentAccountID(opts ...sql.OrderTermOption) OrderOption {
 // ByQuotaDimension orders the results by the quota_dimension field.
 func ByQuotaDimension(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldQuotaDimension, opts...).ToFunc()
+}
+
+// ByOwnerUserID orders the results by the owner_user_id field.
+func ByOwnerUserID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldOwnerUserID, opts...).ToFunc()
+}
+
+// ByIsPublic orders the results by the is_public field.
+func ByIsPublic(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldIsPublic, opts...).ToFunc()
 }
 
 // ByGroupsCount orders the results by groups count.

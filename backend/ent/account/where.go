@@ -195,6 +195,16 @@ func ParentAccountID(v int64) predicate.Account {
 	return predicate.Account(sql.FieldEQ(FieldParentAccountID, v))
 }
 
+// OwnerUserID applies equality check predicate on the "owner_user_id" field. It's identical to OwnerUserIDEQ.
+func OwnerUserID(v int64) predicate.Account {
+	return predicate.Account(sql.FieldEQ(FieldOwnerUserID, v))
+}
+
+// IsPublic applies equality check predicate on the "is_public" field. It's identical to IsPublicEQ.
+func IsPublic(v bool) predicate.Account {
+	return predicate.Account(sql.FieldEQ(FieldIsPublic, v))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
 func CreatedAtEQ(v time.Time) predicate.Account {
 	return predicate.Account(sql.FieldEQ(FieldCreatedAt, v))
@@ -1603,6 +1613,66 @@ func QuotaDimensionIn(vs ...QuotaDimension) predicate.Account {
 // QuotaDimensionNotIn applies the NotIn predicate on the "quota_dimension" field.
 func QuotaDimensionNotIn(vs ...QuotaDimension) predicate.Account {
 	return predicate.Account(sql.FieldNotIn(FieldQuotaDimension, vs...))
+}
+
+// OwnerUserIDEQ applies the EQ predicate on the "owner_user_id" field.
+func OwnerUserIDEQ(v int64) predicate.Account {
+	return predicate.Account(sql.FieldEQ(FieldOwnerUserID, v))
+}
+
+// OwnerUserIDNEQ applies the NEQ predicate on the "owner_user_id" field.
+func OwnerUserIDNEQ(v int64) predicate.Account {
+	return predicate.Account(sql.FieldNEQ(FieldOwnerUserID, v))
+}
+
+// OwnerUserIDIn applies the In predicate on the "owner_user_id" field.
+func OwnerUserIDIn(vs ...int64) predicate.Account {
+	return predicate.Account(sql.FieldIn(FieldOwnerUserID, vs...))
+}
+
+// OwnerUserIDNotIn applies the NotIn predicate on the "owner_user_id" field.
+func OwnerUserIDNotIn(vs ...int64) predicate.Account {
+	return predicate.Account(sql.FieldNotIn(FieldOwnerUserID, vs...))
+}
+
+// OwnerUserIDGT applies the GT predicate on the "owner_user_id" field.
+func OwnerUserIDGT(v int64) predicate.Account {
+	return predicate.Account(sql.FieldGT(FieldOwnerUserID, v))
+}
+
+// OwnerUserIDGTE applies the GTE predicate on the "owner_user_id" field.
+func OwnerUserIDGTE(v int64) predicate.Account {
+	return predicate.Account(sql.FieldGTE(FieldOwnerUserID, v))
+}
+
+// OwnerUserIDLT applies the LT predicate on the "owner_user_id" field.
+func OwnerUserIDLT(v int64) predicate.Account {
+	return predicate.Account(sql.FieldLT(FieldOwnerUserID, v))
+}
+
+// OwnerUserIDLTE applies the LTE predicate on the "owner_user_id" field.
+func OwnerUserIDLTE(v int64) predicate.Account {
+	return predicate.Account(sql.FieldLTE(FieldOwnerUserID, v))
+}
+
+// OwnerUserIDIsNil applies the IsNil predicate on the "owner_user_id" field.
+func OwnerUserIDIsNil() predicate.Account {
+	return predicate.Account(sql.FieldIsNull(FieldOwnerUserID))
+}
+
+// OwnerUserIDNotNil applies the NotNil predicate on the "owner_user_id" field.
+func OwnerUserIDNotNil() predicate.Account {
+	return predicate.Account(sql.FieldNotNull(FieldOwnerUserID))
+}
+
+// IsPublicEQ applies the EQ predicate on the "is_public" field.
+func IsPublicEQ(v bool) predicate.Account {
+	return predicate.Account(sql.FieldEQ(FieldIsPublic, v))
+}
+
+// IsPublicNEQ applies the NEQ predicate on the "is_public" field.
+func IsPublicNEQ(v bool) predicate.Account {
+	return predicate.Account(sql.FieldNEQ(FieldIsPublic, v))
 }
 
 // HasGroups applies the HasEdge predicate on the "groups" edge.

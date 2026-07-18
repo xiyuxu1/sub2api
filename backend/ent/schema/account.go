@@ -201,6 +201,18 @@ func (Account) Fields() []ent.Field {
 			Comment("Parent account id for a linked spark shadow (NULL = normal)."),
 		field.Enum("quota_dimension").Values("global", "spark").Default("global").
 			Comment("'global' (default) or 'spark' (shadow reads codex_bengalfox)."),
+
+		// ========== fork 自定义：资源归属与可见性（见 fork-docs/README.md）==========
+		// 列由 migrations/9000_xdl_resource_visibility.sql 建立；此处仅为 Ent 模型可读写。
+		// owner_user_id: 归属人。NULL = 系统/admin 历史导入。服务端写入，不信前端。
+		field.Int64("owner_user_id").
+			Optional().
+			Nillable().
+			Comment("Owner user id (fork). NULL = system/admin legacy."),
+		// is_public: 管理可见性。true = 其他普通用户可见（只读摘要）。默认 true（自己人透明）。
+		field.Bool("is_public").
+			Default(true).
+			Comment("Management visibility (fork). true = visible to other non-admin users."),
 	}
 }
 

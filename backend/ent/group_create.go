@@ -691,6 +691,34 @@ func (_c *GroupCreate) SetNillableRpmLimit(v *int) *GroupCreate {
 	return _c
 }
 
+// SetOwnerUserID sets the "owner_user_id" field.
+func (_c *GroupCreate) SetOwnerUserID(v int64) *GroupCreate {
+	_c.mutation.SetOwnerUserID(v)
+	return _c
+}
+
+// SetNillableOwnerUserID sets the "owner_user_id" field if the given value is not nil.
+func (_c *GroupCreate) SetNillableOwnerUserID(v *int64) *GroupCreate {
+	if v != nil {
+		_c.SetOwnerUserID(*v)
+	}
+	return _c
+}
+
+// SetIsPublic sets the "is_public" field.
+func (_c *GroupCreate) SetIsPublic(v bool) *GroupCreate {
+	_c.mutation.SetIsPublic(v)
+	return _c
+}
+
+// SetNillableIsPublic sets the "is_public" field if the given value is not nil.
+func (_c *GroupCreate) SetNillableIsPublic(v *bool) *GroupCreate {
+	if v != nil {
+		_c.SetIsPublic(*v)
+	}
+	return _c
+}
+
 // AddAPIKeyIDs adds the "api_keys" edge to the APIKey entity by IDs.
 func (_c *GroupCreate) AddAPIKeyIDs(ids ...int64) *GroupCreate {
 	_c.mutation.AddAPIKeyIDs(ids...)
@@ -952,6 +980,10 @@ func (_c *GroupCreate) defaults() error {
 		v := group.DefaultRpmLimit
 		_c.mutation.SetRpmLimit(v)
 	}
+	if _, ok := _c.mutation.IsPublic(); !ok {
+		v := group.DefaultIsPublic
+		_c.mutation.SetIsPublic(v)
+	}
 	return nil
 }
 
@@ -1095,6 +1127,9 @@ func (_c *GroupCreate) check() error {
 	}
 	if _, ok := _c.mutation.RpmLimit(); !ok {
 		return &ValidationError{Name: "rpm_limit", err: errors.New(`ent: missing required field "Group.rpm_limit"`)}
+	}
+	if _, ok := _c.mutation.IsPublic(); !ok {
+		return &ValidationError{Name: "is_public", err: errors.New(`ent: missing required field "Group.is_public"`)}
 	}
 	return nil
 }
@@ -1318,6 +1353,14 @@ func (_c *GroupCreate) createSpec() (*Group, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.RpmLimit(); ok {
 		_spec.SetField(group.FieldRpmLimit, field.TypeInt, value)
 		_node.RpmLimit = value
+	}
+	if value, ok := _c.mutation.OwnerUserID(); ok {
+		_spec.SetField(group.FieldOwnerUserID, field.TypeInt64, value)
+		_node.OwnerUserID = &value
+	}
+	if value, ok := _c.mutation.IsPublic(); ok {
+		_spec.SetField(group.FieldIsPublic, field.TypeBool, value)
+		_node.IsPublic = value
 	}
 	if nodes := _c.mutation.APIKeysIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
@@ -2252,6 +2295,42 @@ func (u *GroupUpsert) UpdateRpmLimit() *GroupUpsert {
 // AddRpmLimit adds v to the "rpm_limit" field.
 func (u *GroupUpsert) AddRpmLimit(v int) *GroupUpsert {
 	u.Add(group.FieldRpmLimit, v)
+	return u
+}
+
+// SetOwnerUserID sets the "owner_user_id" field.
+func (u *GroupUpsert) SetOwnerUserID(v int64) *GroupUpsert {
+	u.Set(group.FieldOwnerUserID, v)
+	return u
+}
+
+// UpdateOwnerUserID sets the "owner_user_id" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateOwnerUserID() *GroupUpsert {
+	u.SetExcluded(group.FieldOwnerUserID)
+	return u
+}
+
+// AddOwnerUserID adds v to the "owner_user_id" field.
+func (u *GroupUpsert) AddOwnerUserID(v int64) *GroupUpsert {
+	u.Add(group.FieldOwnerUserID, v)
+	return u
+}
+
+// ClearOwnerUserID clears the value of the "owner_user_id" field.
+func (u *GroupUpsert) ClearOwnerUserID() *GroupUpsert {
+	u.SetNull(group.FieldOwnerUserID)
+	return u
+}
+
+// SetIsPublic sets the "is_public" field.
+func (u *GroupUpsert) SetIsPublic(v bool) *GroupUpsert {
+	u.Set(group.FieldIsPublic, v)
+	return u
+}
+
+// UpdateIsPublic sets the "is_public" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateIsPublic() *GroupUpsert {
+	u.SetExcluded(group.FieldIsPublic)
 	return u
 }
 
@@ -3210,6 +3289,48 @@ func (u *GroupUpsertOne) AddRpmLimit(v int) *GroupUpsertOne {
 func (u *GroupUpsertOne) UpdateRpmLimit() *GroupUpsertOne {
 	return u.Update(func(s *GroupUpsert) {
 		s.UpdateRpmLimit()
+	})
+}
+
+// SetOwnerUserID sets the "owner_user_id" field.
+func (u *GroupUpsertOne) SetOwnerUserID(v int64) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetOwnerUserID(v)
+	})
+}
+
+// AddOwnerUserID adds v to the "owner_user_id" field.
+func (u *GroupUpsertOne) AddOwnerUserID(v int64) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.AddOwnerUserID(v)
+	})
+}
+
+// UpdateOwnerUserID sets the "owner_user_id" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateOwnerUserID() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateOwnerUserID()
+	})
+}
+
+// ClearOwnerUserID clears the value of the "owner_user_id" field.
+func (u *GroupUpsertOne) ClearOwnerUserID() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.ClearOwnerUserID()
+	})
+}
+
+// SetIsPublic sets the "is_public" field.
+func (u *GroupUpsertOne) SetIsPublic(v bool) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetIsPublic(v)
+	})
+}
+
+// UpdateIsPublic sets the "is_public" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateIsPublic() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateIsPublic()
 	})
 }
 
@@ -4334,6 +4455,48 @@ func (u *GroupUpsertBulk) AddRpmLimit(v int) *GroupUpsertBulk {
 func (u *GroupUpsertBulk) UpdateRpmLimit() *GroupUpsertBulk {
 	return u.Update(func(s *GroupUpsert) {
 		s.UpdateRpmLimit()
+	})
+}
+
+// SetOwnerUserID sets the "owner_user_id" field.
+func (u *GroupUpsertBulk) SetOwnerUserID(v int64) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetOwnerUserID(v)
+	})
+}
+
+// AddOwnerUserID adds v to the "owner_user_id" field.
+func (u *GroupUpsertBulk) AddOwnerUserID(v int64) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.AddOwnerUserID(v)
+	})
+}
+
+// UpdateOwnerUserID sets the "owner_user_id" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateOwnerUserID() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateOwnerUserID()
+	})
+}
+
+// ClearOwnerUserID clears the value of the "owner_user_id" field.
+func (u *GroupUpsertBulk) ClearOwnerUserID() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.ClearOwnerUserID()
+	})
+}
+
+// SetIsPublic sets the "is_public" field.
+func (u *GroupUpsertBulk) SetIsPublic(v bool) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetIsPublic(v)
+	})
+}
+
+// UpdateIsPublic sets the "is_public" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateIsPublic() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateIsPublic()
 	})
 }
 

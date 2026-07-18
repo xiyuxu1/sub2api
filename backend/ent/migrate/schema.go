@@ -125,6 +125,8 @@ var (
 		{Name: "session_window_end", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "session_window_status", Type: field.TypeString, Nullable: true, Size: 20},
 		{Name: "quota_dimension", Type: field.TypeEnum, Enums: []string{"global", "spark"}, Default: "global"},
+		{Name: "owner_user_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "is_public", Type: field.TypeBool, Default: true},
 		{Name: "proxy_id", Type: field.TypeInt64, Nullable: true},
 		{Name: "parent_account_id", Type: field.TypeInt64, Nullable: true},
 	}
@@ -136,13 +138,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "accounts_proxies_proxy",
-				Columns:    []*schema.Column{AccountsColumns[30]},
+				Columns:    []*schema.Column{AccountsColumns[32]},
 				RefColumns: []*schema.Column{ProxiesColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "accounts_accounts_children",
-				Columns:    []*schema.Column{AccountsColumns[31]},
+				Columns:    []*schema.Column{AccountsColumns[33]},
 				RefColumns: []*schema.Column{AccountsColumns[0]},
 				OnDelete:   schema.Restrict,
 			},
@@ -166,7 +168,7 @@ var (
 			{
 				Name:    "account_proxy_id",
 				Unique:  false,
-				Columns: []*schema.Column{AccountsColumns[30]},
+				Columns: []*schema.Column{AccountsColumns[32]},
 			},
 			{
 				Name:    "account_priority",
@@ -216,7 +218,7 @@ var (
 			{
 				Name:    "account_parent_account_id",
 				Unique:  false,
-				Columns: []*schema.Column{AccountsColumns[31]},
+				Columns: []*schema.Column{AccountsColumns[33]},
 			},
 		},
 	}
@@ -882,6 +884,8 @@ var (
 		{Name: "messages_dispatch_model_config", Type: field.TypeJSON, SchemaType: map[string]string{"postgres": "jsonb"}},
 		{Name: "models_list_config", Type: field.TypeJSON, SchemaType: map[string]string{"postgres": "jsonb"}},
 		{Name: "rpm_limit", Type: field.TypeInt, Default: 0},
+		{Name: "owner_user_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "is_public", Type: field.TypeBool, Default: true},
 	}
 	// GroupsTable holds the schema information for the "groups" table.
 	GroupsTable = &schema.Table{
@@ -1326,6 +1330,8 @@ var (
 		{Name: "expires_at", Type: field.TypeTime, Nullable: true},
 		{Name: "fallback_mode", Type: field.TypeString, Size: 20, Default: "none"},
 		{Name: "expiry_warn_days", Type: field.TypeInt, Default: 7},
+		{Name: "owner_user_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "is_public", Type: field.TypeBool, Default: true},
 		{Name: "backup_proxy_id", Type: field.TypeInt64, Unique: true, Nullable: true},
 	}
 	// ProxiesTable holds the schema information for the "proxies" table.
@@ -1336,7 +1342,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "proxies_proxies_backup_proxy",
-				Columns:    []*schema.Column{ProxiesColumns[14]},
+				Columns:    []*schema.Column{ProxiesColumns[16]},
 				RefColumns: []*schema.Column{ProxiesColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -1360,7 +1366,7 @@ var (
 			{
 				Name:    "proxy_backup_proxy_id",
 				Unique:  false,
-				Columns: []*schema.Column{ProxiesColumns[14]},
+				Columns: []*schema.Column{ProxiesColumns[16]},
 			},
 		},
 	}

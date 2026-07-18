@@ -913,6 +913,47 @@ func (_u *GroupUpdate) AddRpmLimit(v int) *GroupUpdate {
 	return _u
 }
 
+// SetOwnerUserID sets the "owner_user_id" field.
+func (_u *GroupUpdate) SetOwnerUserID(v int64) *GroupUpdate {
+	_u.mutation.ResetOwnerUserID()
+	_u.mutation.SetOwnerUserID(v)
+	return _u
+}
+
+// SetNillableOwnerUserID sets the "owner_user_id" field if the given value is not nil.
+func (_u *GroupUpdate) SetNillableOwnerUserID(v *int64) *GroupUpdate {
+	if v != nil {
+		_u.SetOwnerUserID(*v)
+	}
+	return _u
+}
+
+// AddOwnerUserID adds value to the "owner_user_id" field.
+func (_u *GroupUpdate) AddOwnerUserID(v int64) *GroupUpdate {
+	_u.mutation.AddOwnerUserID(v)
+	return _u
+}
+
+// ClearOwnerUserID clears the value of the "owner_user_id" field.
+func (_u *GroupUpdate) ClearOwnerUserID() *GroupUpdate {
+	_u.mutation.ClearOwnerUserID()
+	return _u
+}
+
+// SetIsPublic sets the "is_public" field.
+func (_u *GroupUpdate) SetIsPublic(v bool) *GroupUpdate {
+	_u.mutation.SetIsPublic(v)
+	return _u
+}
+
+// SetNillableIsPublic sets the "is_public" field if the given value is not nil.
+func (_u *GroupUpdate) SetNillableIsPublic(v *bool) *GroupUpdate {
+	if v != nil {
+		_u.SetIsPublic(*v)
+	}
+	return _u
+}
+
 // AddAPIKeyIDs adds the "api_keys" edge to the APIKey entity by IDs.
 func (_u *GroupUpdate) AddAPIKeyIDs(ids ...int64) *GroupUpdate {
 	_u.mutation.AddAPIKeyIDs(ids...)
@@ -1484,6 +1525,18 @@ func (_u *GroupUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.AddedRpmLimit(); ok {
 		_spec.AddField(group.FieldRpmLimit, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.OwnerUserID(); ok {
+		_spec.SetField(group.FieldOwnerUserID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedOwnerUserID(); ok {
+		_spec.AddField(group.FieldOwnerUserID, field.TypeInt64, value)
+	}
+	if _u.mutation.OwnerUserIDCleared() {
+		_spec.ClearField(group.FieldOwnerUserID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.IsPublic(); ok {
+		_spec.SetField(group.FieldIsPublic, field.TypeBool, value)
 	}
 	if _u.mutation.APIKeysCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -2676,6 +2729,47 @@ func (_u *GroupUpdateOne) AddRpmLimit(v int) *GroupUpdateOne {
 	return _u
 }
 
+// SetOwnerUserID sets the "owner_user_id" field.
+func (_u *GroupUpdateOne) SetOwnerUserID(v int64) *GroupUpdateOne {
+	_u.mutation.ResetOwnerUserID()
+	_u.mutation.SetOwnerUserID(v)
+	return _u
+}
+
+// SetNillableOwnerUserID sets the "owner_user_id" field if the given value is not nil.
+func (_u *GroupUpdateOne) SetNillableOwnerUserID(v *int64) *GroupUpdateOne {
+	if v != nil {
+		_u.SetOwnerUserID(*v)
+	}
+	return _u
+}
+
+// AddOwnerUserID adds value to the "owner_user_id" field.
+func (_u *GroupUpdateOne) AddOwnerUserID(v int64) *GroupUpdateOne {
+	_u.mutation.AddOwnerUserID(v)
+	return _u
+}
+
+// ClearOwnerUserID clears the value of the "owner_user_id" field.
+func (_u *GroupUpdateOne) ClearOwnerUserID() *GroupUpdateOne {
+	_u.mutation.ClearOwnerUserID()
+	return _u
+}
+
+// SetIsPublic sets the "is_public" field.
+func (_u *GroupUpdateOne) SetIsPublic(v bool) *GroupUpdateOne {
+	_u.mutation.SetIsPublic(v)
+	return _u
+}
+
+// SetNillableIsPublic sets the "is_public" field if the given value is not nil.
+func (_u *GroupUpdateOne) SetNillableIsPublic(v *bool) *GroupUpdateOne {
+	if v != nil {
+		_u.SetIsPublic(*v)
+	}
+	return _u
+}
+
 // AddAPIKeyIDs adds the "api_keys" edge to the APIKey entity by IDs.
 func (_u *GroupUpdateOne) AddAPIKeyIDs(ids ...int64) *GroupUpdateOne {
 	_u.mutation.AddAPIKeyIDs(ids...)
@@ -3277,6 +3371,18 @@ func (_u *GroupUpdateOne) sqlSave(ctx context.Context) (_node *Group, err error)
 	}
 	if value, ok := _u.mutation.AddedRpmLimit(); ok {
 		_spec.AddField(group.FieldRpmLimit, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.OwnerUserID(); ok {
+		_spec.SetField(group.FieldOwnerUserID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedOwnerUserID(); ok {
+		_spec.AddField(group.FieldOwnerUserID, field.TypeInt64, value)
+	}
+	if _u.mutation.OwnerUserIDCleared() {
+		_spec.ClearField(group.FieldOwnerUserID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.IsPublic(); ok {
+		_spec.SetField(group.FieldIsPublic, field.TypeBool, value)
 	}
 	if _u.mutation.APIKeysCleared() {
 		edge := &sqlgraph.EdgeSpec{

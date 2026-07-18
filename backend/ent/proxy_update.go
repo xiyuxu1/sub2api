@@ -247,6 +247,47 @@ func (_u *ProxyUpdate) AddExpiryWarnDays(v int) *ProxyUpdate {
 	return _u
 }
 
+// SetOwnerUserID sets the "owner_user_id" field.
+func (_u *ProxyUpdate) SetOwnerUserID(v int64) *ProxyUpdate {
+	_u.mutation.ResetOwnerUserID()
+	_u.mutation.SetOwnerUserID(v)
+	return _u
+}
+
+// SetNillableOwnerUserID sets the "owner_user_id" field if the given value is not nil.
+func (_u *ProxyUpdate) SetNillableOwnerUserID(v *int64) *ProxyUpdate {
+	if v != nil {
+		_u.SetOwnerUserID(*v)
+	}
+	return _u
+}
+
+// AddOwnerUserID adds value to the "owner_user_id" field.
+func (_u *ProxyUpdate) AddOwnerUserID(v int64) *ProxyUpdate {
+	_u.mutation.AddOwnerUserID(v)
+	return _u
+}
+
+// ClearOwnerUserID clears the value of the "owner_user_id" field.
+func (_u *ProxyUpdate) ClearOwnerUserID() *ProxyUpdate {
+	_u.mutation.ClearOwnerUserID()
+	return _u
+}
+
+// SetIsPublic sets the "is_public" field.
+func (_u *ProxyUpdate) SetIsPublic(v bool) *ProxyUpdate {
+	_u.mutation.SetIsPublic(v)
+	return _u
+}
+
+// SetNillableIsPublic sets the "is_public" field if the given value is not nil.
+func (_u *ProxyUpdate) SetNillableIsPublic(v *bool) *ProxyUpdate {
+	if v != nil {
+		_u.SetIsPublic(*v)
+	}
+	return _u
+}
+
 // AddAccountIDs adds the "accounts" edge to the Account entity by IDs.
 func (_u *ProxyUpdate) AddAccountIDs(ids ...int64) *ProxyUpdate {
 	_u.mutation.AddAccountIDs(ids...)
@@ -446,6 +487,18 @@ func (_u *ProxyUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.AddedExpiryWarnDays(); ok {
 		_spec.AddField(proxy.FieldExpiryWarnDays, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.OwnerUserID(); ok {
+		_spec.SetField(proxy.FieldOwnerUserID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedOwnerUserID(); ok {
+		_spec.AddField(proxy.FieldOwnerUserID, field.TypeInt64, value)
+	}
+	if _u.mutation.OwnerUserIDCleared() {
+		_spec.ClearField(proxy.FieldOwnerUserID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.IsPublic(); ok {
+		_spec.SetField(proxy.FieldIsPublic, field.TypeBool, value)
 	}
 	if _u.mutation.AccountsCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -759,6 +812,47 @@ func (_u *ProxyUpdateOne) AddExpiryWarnDays(v int) *ProxyUpdateOne {
 	return _u
 }
 
+// SetOwnerUserID sets the "owner_user_id" field.
+func (_u *ProxyUpdateOne) SetOwnerUserID(v int64) *ProxyUpdateOne {
+	_u.mutation.ResetOwnerUserID()
+	_u.mutation.SetOwnerUserID(v)
+	return _u
+}
+
+// SetNillableOwnerUserID sets the "owner_user_id" field if the given value is not nil.
+func (_u *ProxyUpdateOne) SetNillableOwnerUserID(v *int64) *ProxyUpdateOne {
+	if v != nil {
+		_u.SetOwnerUserID(*v)
+	}
+	return _u
+}
+
+// AddOwnerUserID adds value to the "owner_user_id" field.
+func (_u *ProxyUpdateOne) AddOwnerUserID(v int64) *ProxyUpdateOne {
+	_u.mutation.AddOwnerUserID(v)
+	return _u
+}
+
+// ClearOwnerUserID clears the value of the "owner_user_id" field.
+func (_u *ProxyUpdateOne) ClearOwnerUserID() *ProxyUpdateOne {
+	_u.mutation.ClearOwnerUserID()
+	return _u
+}
+
+// SetIsPublic sets the "is_public" field.
+func (_u *ProxyUpdateOne) SetIsPublic(v bool) *ProxyUpdateOne {
+	_u.mutation.SetIsPublic(v)
+	return _u
+}
+
+// SetNillableIsPublic sets the "is_public" field if the given value is not nil.
+func (_u *ProxyUpdateOne) SetNillableIsPublic(v *bool) *ProxyUpdateOne {
+	if v != nil {
+		_u.SetIsPublic(*v)
+	}
+	return _u
+}
+
 // AddAccountIDs adds the "accounts" edge to the Account entity by IDs.
 func (_u *ProxyUpdateOne) AddAccountIDs(ids ...int64) *ProxyUpdateOne {
 	_u.mutation.AddAccountIDs(ids...)
@@ -988,6 +1082,18 @@ func (_u *ProxyUpdateOne) sqlSave(ctx context.Context) (_node *Proxy, err error)
 	}
 	if value, ok := _u.mutation.AddedExpiryWarnDays(); ok {
 		_spec.AddField(proxy.FieldExpiryWarnDays, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.OwnerUserID(); ok {
+		_spec.SetField(proxy.FieldOwnerUserID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedOwnerUserID(); ok {
+		_spec.AddField(proxy.FieldOwnerUserID, field.TypeInt64, value)
+	}
+	if _u.mutation.OwnerUserIDCleared() {
+		_spec.ClearField(proxy.FieldOwnerUserID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.IsPublic(); ok {
+		_spec.SetField(proxy.FieldIsPublic, field.TypeBool, value)
 	}
 	if _u.mutation.AccountsCleared() {
 		edge := &sqlgraph.EdgeSpec{

@@ -564,6 +564,47 @@ func (_u *AccountUpdate) SetNillableQuotaDimension(v *account.QuotaDimension) *A
 	return _u
 }
 
+// SetOwnerUserID sets the "owner_user_id" field.
+func (_u *AccountUpdate) SetOwnerUserID(v int64) *AccountUpdate {
+	_u.mutation.ResetOwnerUserID()
+	_u.mutation.SetOwnerUserID(v)
+	return _u
+}
+
+// SetNillableOwnerUserID sets the "owner_user_id" field if the given value is not nil.
+func (_u *AccountUpdate) SetNillableOwnerUserID(v *int64) *AccountUpdate {
+	if v != nil {
+		_u.SetOwnerUserID(*v)
+	}
+	return _u
+}
+
+// AddOwnerUserID adds value to the "owner_user_id" field.
+func (_u *AccountUpdate) AddOwnerUserID(v int64) *AccountUpdate {
+	_u.mutation.AddOwnerUserID(v)
+	return _u
+}
+
+// ClearOwnerUserID clears the value of the "owner_user_id" field.
+func (_u *AccountUpdate) ClearOwnerUserID() *AccountUpdate {
+	_u.mutation.ClearOwnerUserID()
+	return _u
+}
+
+// SetIsPublic sets the "is_public" field.
+func (_u *AccountUpdate) SetIsPublic(v bool) *AccountUpdate {
+	_u.mutation.SetIsPublic(v)
+	return _u
+}
+
+// SetNillableIsPublic sets the "is_public" field if the given value is not nil.
+func (_u *AccountUpdate) SetNillableIsPublic(v *bool) *AccountUpdate {
+	if v != nil {
+		_u.SetIsPublic(*v)
+	}
+	return _u
+}
+
 // AddGroupIDs adds the "groups" edge to the Group entity by IDs.
 func (_u *AccountUpdate) AddGroupIDs(ids ...int64) *AccountUpdate {
 	_u.mutation.AddGroupIDs(ids...)
@@ -945,6 +986,18 @@ func (_u *AccountUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.QuotaDimension(); ok {
 		_spec.SetField(account.FieldQuotaDimension, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.OwnerUserID(); ok {
+		_spec.SetField(account.FieldOwnerUserID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedOwnerUserID(); ok {
+		_spec.AddField(account.FieldOwnerUserID, field.TypeInt64, value)
+	}
+	if _u.mutation.OwnerUserIDCleared() {
+		_spec.ClearField(account.FieldOwnerUserID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.IsPublic(); ok {
+		_spec.SetField(account.FieldIsPublic, field.TypeBool, value)
 	}
 	if _u.mutation.GroupsCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -1704,6 +1757,47 @@ func (_u *AccountUpdateOne) SetNillableQuotaDimension(v *account.QuotaDimension)
 	return _u
 }
 
+// SetOwnerUserID sets the "owner_user_id" field.
+func (_u *AccountUpdateOne) SetOwnerUserID(v int64) *AccountUpdateOne {
+	_u.mutation.ResetOwnerUserID()
+	_u.mutation.SetOwnerUserID(v)
+	return _u
+}
+
+// SetNillableOwnerUserID sets the "owner_user_id" field if the given value is not nil.
+func (_u *AccountUpdateOne) SetNillableOwnerUserID(v *int64) *AccountUpdateOne {
+	if v != nil {
+		_u.SetOwnerUserID(*v)
+	}
+	return _u
+}
+
+// AddOwnerUserID adds value to the "owner_user_id" field.
+func (_u *AccountUpdateOne) AddOwnerUserID(v int64) *AccountUpdateOne {
+	_u.mutation.AddOwnerUserID(v)
+	return _u
+}
+
+// ClearOwnerUserID clears the value of the "owner_user_id" field.
+func (_u *AccountUpdateOne) ClearOwnerUserID() *AccountUpdateOne {
+	_u.mutation.ClearOwnerUserID()
+	return _u
+}
+
+// SetIsPublic sets the "is_public" field.
+func (_u *AccountUpdateOne) SetIsPublic(v bool) *AccountUpdateOne {
+	_u.mutation.SetIsPublic(v)
+	return _u
+}
+
+// SetNillableIsPublic sets the "is_public" field if the given value is not nil.
+func (_u *AccountUpdateOne) SetNillableIsPublic(v *bool) *AccountUpdateOne {
+	if v != nil {
+		_u.SetIsPublic(*v)
+	}
+	return _u
+}
+
 // AddGroupIDs adds the "groups" edge to the Group entity by IDs.
 func (_u *AccountUpdateOne) AddGroupIDs(ids ...int64) *AccountUpdateOne {
 	_u.mutation.AddGroupIDs(ids...)
@@ -2115,6 +2209,18 @@ func (_u *AccountUpdateOne) sqlSave(ctx context.Context) (_node *Account, err er
 	}
 	if value, ok := _u.mutation.QuotaDimension(); ok {
 		_spec.SetField(account.FieldQuotaDimension, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.OwnerUserID(); ok {
+		_spec.SetField(account.FieldOwnerUserID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedOwnerUserID(); ok {
+		_spec.AddField(account.FieldOwnerUserID, field.TypeInt64, value)
+	}
+	if _u.mutation.OwnerUserIDCleared() {
+		_spec.ClearField(account.FieldOwnerUserID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.IsPublic(); ok {
+		_spec.SetField(account.FieldIsPublic, field.TypeBool, value)
 	}
 	if _u.mutation.GroupsCleared() {
 		edge := &sqlgraph.EdgeSpec{

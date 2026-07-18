@@ -43,6 +43,10 @@ const (
 	FieldBackupProxyID = "backup_proxy_id"
 	// FieldExpiryWarnDays holds the string denoting the expiry_warn_days field in the database.
 	FieldExpiryWarnDays = "expiry_warn_days"
+	// FieldOwnerUserID holds the string denoting the owner_user_id field in the database.
+	FieldOwnerUserID = "owner_user_id"
+	// FieldIsPublic holds the string denoting the is_public field in the database.
+	FieldIsPublic = "is_public"
 	// EdgeAccounts holds the string denoting the accounts edge name in mutations.
 	EdgeAccounts = "accounts"
 	// EdgeBackupProxy holds the string denoting the backup_proxy edge name in mutations.
@@ -79,6 +83,8 @@ var Columns = []string{
 	FieldFallbackMode,
 	FieldBackupProxyID,
 	FieldExpiryWarnDays,
+	FieldOwnerUserID,
+	FieldIsPublic,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -125,6 +131,8 @@ var (
 	FallbackModeValidator func(string) error
 	// DefaultExpiryWarnDays holds the default value on creation for the "expiry_warn_days" field.
 	DefaultExpiryWarnDays int
+	// DefaultIsPublic holds the default value on creation for the "is_public" field.
+	DefaultIsPublic bool
 )
 
 // OrderOption defines the ordering options for the Proxy queries.
@@ -203,6 +211,16 @@ func ByBackupProxyID(opts ...sql.OrderTermOption) OrderOption {
 // ByExpiryWarnDays orders the results by the expiry_warn_days field.
 func ByExpiryWarnDays(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldExpiryWarnDays, opts...).ToFunc()
+}
+
+// ByOwnerUserID orders the results by the owner_user_id field.
+func ByOwnerUserID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldOwnerUserID, opts...).ToFunc()
+}
+
+// ByIsPublic orders the results by the is_public field.
+func ByIsPublic(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldIsPublic, opts...).ToFunc()
 }
 
 // ByAccountsCount orders the results by accounts count.

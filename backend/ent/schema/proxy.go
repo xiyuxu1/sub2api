@@ -64,6 +64,16 @@ func (Proxy) Fields() []ent.Field {
 		field.Int("expiry_warn_days").
 			Default(7).
 			Comment("Days before expiry to flag as expiring-soon (per proxy)."),
+
+		// ========== fork 自定义：资源归属与可见性（见 fork-docs/README.md）==========
+		// 列由 migrations/9000_xdl_resource_visibility.sql 建立；此处仅为 Ent 模型可读写。
+		field.Int64("owner_user_id").
+			Optional().
+			Nillable().
+			Comment("Owner user id (fork). NULL = system/admin legacy."),
+		field.Bool("is_public").
+			Default(true).
+			Comment("Management visibility (fork). true = visible to other non-admin users."),
 	}
 }
 

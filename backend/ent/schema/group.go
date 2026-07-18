@@ -221,6 +221,16 @@ func (Group) Fields() []ent.Field {
 		field.Int("rpm_limit").
 			Default(0).
 			Comment("分组 RPM 上限，0 表示不限制；设置后接管该分组用户的限流"),
+
+		// ========== fork 自定义：资源归属与可见性（见 fork-docs/README.md）==========
+		// 列由 migrations/9000_xdl_resource_visibility.sql 建立；此处仅为 Ent 模型可读写。
+		field.Int64("owner_user_id").
+			Optional().
+			Nillable().
+			Comment("Owner user id (fork). NULL = system/admin legacy."),
+		field.Bool("is_public").
+			Default(true).
+			Comment("Management visibility (fork). true = visible to other non-admin users."),
 	}
 }
 

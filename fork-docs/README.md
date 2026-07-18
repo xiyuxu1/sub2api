@@ -35,7 +35,7 @@
 ## 3. 改动清单（全部为新增文件，尽量不碰上游文件）
 后端：
 - `backend/migrations/9000_xdl_resource_visibility.sql` — 加上述两列 + 索引。**fork 专属命名，上线后永不重命名/改内容**（迁移 runner 按完整文件名 + SHA256 记录）。
-- `backend/ent/schema/{account,group,proxy}.go` — 各加两个字段（**这是必须改的上游文件**）。改后 `go generate ./...` 重新生成 ent 代码；生成代码冲突时**不手工解，按最终 schema 重跑**。
+- `backend/ent/schema/{account,group,proxy}.go` — 各加两个字段（**这是必须改的上游文件**）。改后 `cd backend && go generate ./ent/...` 重新生成 ent 代码（**只跑 ent，别跑 `./...`**——完整 generate 会连带跑 wire，本 checkout 的 wire 重生成有个与本改动无关的 `PromptAdminService` provider 报错）；生成代码冲突时**不手工解，按最终 schema 重跑**。
 - `backend/internal/server/routes/self.go` — 在现有 JWT 用户路由下注册 `/self/accounts`、`/self/proxies`、`/self/groups`。
 - `backend/internal/handler/self/*.go` — list / create / update / delete（原子 owner guard）。
 - `backend/internal/handler/dto/self_*.go` — 独立脱敏 DTO（public 摘要 vs owner 详情）。
@@ -72,8 +72,8 @@ git push origin main                                          # 更新 GitHub fo
 
 git checkout xdl/self-service
 git merge main                                                # 把上游合进你的改动分支
-# 解冲突：ent 生成代码不手工解 → go generate ./... 重跑；迁移文件保持不动
-cd backend && go generate ./... && go build ./... && go test ./internal/handler/self/...
+# 解冲突：ent 生成代码不手工解 → 只跑 ent 重生成；迁移文件保持不动
+cd backend && GOTOOLCHAIN=auto go generate ./ent/... && go build ./... && go test ./internal/handler/self/...
 cd ../frontend && pnpm build   # 或 npm，按仓库为准
 ```
 

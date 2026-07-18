@@ -2317,6 +2317,9 @@ type AccountMutation struct {
 	session_window_end          *time.Time
 	session_window_status       *string
 	quota_dimension             *account.QuotaDimension
+	owner_user_id               *int64
+	addowner_user_id            *int64
+	is_public                   *bool
 	clearedFields               map[string]struct{}
 	groups                      map[int64]struct{}
 	removedgroups               map[int64]struct{}
@@ -3873,6 +3876,112 @@ func (m *AccountMutation) ResetQuotaDimension() {
 	m.quota_dimension = nil
 }
 
+// SetOwnerUserID sets the "owner_user_id" field.
+func (m *AccountMutation) SetOwnerUserID(i int64) {
+	m.owner_user_id = &i
+	m.addowner_user_id = nil
+}
+
+// OwnerUserID returns the value of the "owner_user_id" field in the mutation.
+func (m *AccountMutation) OwnerUserID() (r int64, exists bool) {
+	v := m.owner_user_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOwnerUserID returns the old "owner_user_id" field's value of the Account entity.
+// If the Account object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AccountMutation) OldOwnerUserID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOwnerUserID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOwnerUserID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOwnerUserID: %w", err)
+	}
+	return oldValue.OwnerUserID, nil
+}
+
+// AddOwnerUserID adds i to the "owner_user_id" field.
+func (m *AccountMutation) AddOwnerUserID(i int64) {
+	if m.addowner_user_id != nil {
+		*m.addowner_user_id += i
+	} else {
+		m.addowner_user_id = &i
+	}
+}
+
+// AddedOwnerUserID returns the value that was added to the "owner_user_id" field in this mutation.
+func (m *AccountMutation) AddedOwnerUserID() (r int64, exists bool) {
+	v := m.addowner_user_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearOwnerUserID clears the value of the "owner_user_id" field.
+func (m *AccountMutation) ClearOwnerUserID() {
+	m.owner_user_id = nil
+	m.addowner_user_id = nil
+	m.clearedFields[account.FieldOwnerUserID] = struct{}{}
+}
+
+// OwnerUserIDCleared returns if the "owner_user_id" field was cleared in this mutation.
+func (m *AccountMutation) OwnerUserIDCleared() bool {
+	_, ok := m.clearedFields[account.FieldOwnerUserID]
+	return ok
+}
+
+// ResetOwnerUserID resets all changes to the "owner_user_id" field.
+func (m *AccountMutation) ResetOwnerUserID() {
+	m.owner_user_id = nil
+	m.addowner_user_id = nil
+	delete(m.clearedFields, account.FieldOwnerUserID)
+}
+
+// SetIsPublic sets the "is_public" field.
+func (m *AccountMutation) SetIsPublic(b bool) {
+	m.is_public = &b
+}
+
+// IsPublic returns the value of the "is_public" field in the mutation.
+func (m *AccountMutation) IsPublic() (r bool, exists bool) {
+	v := m.is_public
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldIsPublic returns the old "is_public" field's value of the Account entity.
+// If the Account object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AccountMutation) OldIsPublic(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldIsPublic is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldIsPublic requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldIsPublic: %w", err)
+	}
+	return oldValue.IsPublic, nil
+}
+
+// ResetIsPublic resets all changes to the "is_public" field.
+func (m *AccountMutation) ResetIsPublic() {
+	m.is_public = nil
+}
+
 // AddGroupIDs adds the "groups" edge to the Group entity by ids.
 func (m *AccountMutation) AddGroupIDs(ids ...int64) {
 	if m.groups == nil {
@@ -4136,7 +4245,7 @@ func (m *AccountMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AccountMutation) Fields() []string {
-	fields := make([]string, 0, 31)
+	fields := make([]string, 0, 33)
 	if m.created_at != nil {
 		fields = append(fields, account.FieldCreatedAt)
 	}
@@ -4230,6 +4339,12 @@ func (m *AccountMutation) Fields() []string {
 	if m.quota_dimension != nil {
 		fields = append(fields, account.FieldQuotaDimension)
 	}
+	if m.owner_user_id != nil {
+		fields = append(fields, account.FieldOwnerUserID)
+	}
+	if m.is_public != nil {
+		fields = append(fields, account.FieldIsPublic)
+	}
 	return fields
 }
 
@@ -4300,6 +4415,10 @@ func (m *AccountMutation) Field(name string) (ent.Value, bool) {
 		return m.ParentAccountID()
 	case account.FieldQuotaDimension:
 		return m.QuotaDimension()
+	case account.FieldOwnerUserID:
+		return m.OwnerUserID()
+	case account.FieldIsPublic:
+		return m.IsPublic()
 	}
 	return nil, false
 }
@@ -4371,6 +4490,10 @@ func (m *AccountMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldParentAccountID(ctx)
 	case account.FieldQuotaDimension:
 		return m.OldQuotaDimension(ctx)
+	case account.FieldOwnerUserID:
+		return m.OldOwnerUserID(ctx)
+	case account.FieldIsPublic:
+		return m.OldIsPublic(ctx)
 	}
 	return nil, fmt.Errorf("unknown Account field %s", name)
 }
@@ -4597,6 +4720,20 @@ func (m *AccountMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetQuotaDimension(v)
 		return nil
+	case account.FieldOwnerUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOwnerUserID(v)
+		return nil
+	case account.FieldIsPublic:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetIsPublic(v)
+		return nil
 	}
 	return fmt.Errorf("unknown Account field %s", name)
 }
@@ -4620,6 +4757,9 @@ func (m *AccountMutation) AddedFields() []string {
 	if m.addrate_multiplier != nil {
 		fields = append(fields, account.FieldRateMultiplier)
 	}
+	if m.addowner_user_id != nil {
+		fields = append(fields, account.FieldOwnerUserID)
+	}
 	return fields
 }
 
@@ -4638,6 +4778,8 @@ func (m *AccountMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedPriority()
 	case account.FieldRateMultiplier:
 		return m.AddedRateMultiplier()
+	case account.FieldOwnerUserID:
+		return m.AddedOwnerUserID()
 	}
 	return nil, false
 }
@@ -4681,6 +4823,13 @@ func (m *AccountMutation) AddField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddRateMultiplier(v)
+		return nil
+	case account.FieldOwnerUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddOwnerUserID(v)
 		return nil
 	}
 	return fmt.Errorf("unknown Account numeric field %s", name)
@@ -4740,6 +4889,9 @@ func (m *AccountMutation) ClearedFields() []string {
 	}
 	if m.FieldCleared(account.FieldParentAccountID) {
 		fields = append(fields, account.FieldParentAccountID)
+	}
+	if m.FieldCleared(account.FieldOwnerUserID) {
+		fields = append(fields, account.FieldOwnerUserID)
 	}
 	return fields
 }
@@ -4805,6 +4957,9 @@ func (m *AccountMutation) ClearField(name string) error {
 		return nil
 	case account.FieldParentAccountID:
 		m.ClearParentAccountID()
+		return nil
+	case account.FieldOwnerUserID:
+		m.ClearOwnerUserID()
 		return nil
 	}
 	return fmt.Errorf("unknown Account nullable field %s", name)
@@ -4906,6 +5061,12 @@ func (m *AccountMutation) ResetField(name string) error {
 		return nil
 	case account.FieldQuotaDimension:
 		m.ResetQuotaDimension()
+		return nil
+	case account.FieldOwnerUserID:
+		m.ResetOwnerUserID()
+		return nil
+	case account.FieldIsPublic:
+		m.ResetIsPublic()
 		return nil
 	}
 	return fmt.Errorf("unknown Account field %s", name)
@@ -20865,6 +21026,9 @@ type GroupMutation struct {
 	models_list_config                      *domain.GroupModelsListConfig
 	rpm_limit                               *int
 	addrpm_limit                            *int
+	owner_user_id                           *int64
+	addowner_user_id                        *int64
+	is_public                               *bool
 	clearedFields                           map[string]struct{}
 	api_keys                                map[int64]struct{}
 	removedapi_keys                         map[int64]struct{}
@@ -23406,6 +23570,112 @@ func (m *GroupMutation) ResetRpmLimit() {
 	m.addrpm_limit = nil
 }
 
+// SetOwnerUserID sets the "owner_user_id" field.
+func (m *GroupMutation) SetOwnerUserID(i int64) {
+	m.owner_user_id = &i
+	m.addowner_user_id = nil
+}
+
+// OwnerUserID returns the value of the "owner_user_id" field in the mutation.
+func (m *GroupMutation) OwnerUserID() (r int64, exists bool) {
+	v := m.owner_user_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOwnerUserID returns the old "owner_user_id" field's value of the Group entity.
+// If the Group object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupMutation) OldOwnerUserID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOwnerUserID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOwnerUserID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOwnerUserID: %w", err)
+	}
+	return oldValue.OwnerUserID, nil
+}
+
+// AddOwnerUserID adds i to the "owner_user_id" field.
+func (m *GroupMutation) AddOwnerUserID(i int64) {
+	if m.addowner_user_id != nil {
+		*m.addowner_user_id += i
+	} else {
+		m.addowner_user_id = &i
+	}
+}
+
+// AddedOwnerUserID returns the value that was added to the "owner_user_id" field in this mutation.
+func (m *GroupMutation) AddedOwnerUserID() (r int64, exists bool) {
+	v := m.addowner_user_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearOwnerUserID clears the value of the "owner_user_id" field.
+func (m *GroupMutation) ClearOwnerUserID() {
+	m.owner_user_id = nil
+	m.addowner_user_id = nil
+	m.clearedFields[group.FieldOwnerUserID] = struct{}{}
+}
+
+// OwnerUserIDCleared returns if the "owner_user_id" field was cleared in this mutation.
+func (m *GroupMutation) OwnerUserIDCleared() bool {
+	_, ok := m.clearedFields[group.FieldOwnerUserID]
+	return ok
+}
+
+// ResetOwnerUserID resets all changes to the "owner_user_id" field.
+func (m *GroupMutation) ResetOwnerUserID() {
+	m.owner_user_id = nil
+	m.addowner_user_id = nil
+	delete(m.clearedFields, group.FieldOwnerUserID)
+}
+
+// SetIsPublic sets the "is_public" field.
+func (m *GroupMutation) SetIsPublic(b bool) {
+	m.is_public = &b
+}
+
+// IsPublic returns the value of the "is_public" field in the mutation.
+func (m *GroupMutation) IsPublic() (r bool, exists bool) {
+	v := m.is_public
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldIsPublic returns the old "is_public" field's value of the Group entity.
+// If the Group object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupMutation) OldIsPublic(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldIsPublic is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldIsPublic requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldIsPublic: %w", err)
+	}
+	return oldValue.IsPublic, nil
+}
+
+// ResetIsPublic resets all changes to the "is_public" field.
+func (m *GroupMutation) ResetIsPublic() {
+	m.is_public = nil
+}
+
 // AddAPIKeyIDs adds the "api_keys" edge to the APIKey entity by ids.
 func (m *GroupMutation) AddAPIKeyIDs(ids ...int64) {
 	if m.api_keys == nil {
@@ -23764,7 +24034,7 @@ func (m *GroupMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *GroupMutation) Fields() []string {
-	fields := make([]string, 0, 49)
+	fields := make([]string, 0, 51)
 	if m.created_at != nil {
 		fields = append(fields, group.FieldCreatedAt)
 	}
@@ -23912,6 +24182,12 @@ func (m *GroupMutation) Fields() []string {
 	if m.rpm_limit != nil {
 		fields = append(fields, group.FieldRpmLimit)
 	}
+	if m.owner_user_id != nil {
+		fields = append(fields, group.FieldOwnerUserID)
+	}
+	if m.is_public != nil {
+		fields = append(fields, group.FieldIsPublic)
+	}
 	return fields
 }
 
@@ -24018,6 +24294,10 @@ func (m *GroupMutation) Field(name string) (ent.Value, bool) {
 		return m.ModelsListConfig()
 	case group.FieldRpmLimit:
 		return m.RpmLimit()
+	case group.FieldOwnerUserID:
+		return m.OwnerUserID()
+	case group.FieldIsPublic:
+		return m.IsPublic()
 	}
 	return nil, false
 }
@@ -24125,6 +24405,10 @@ func (m *GroupMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldModelsListConfig(ctx)
 	case group.FieldRpmLimit:
 		return m.OldRpmLimit(ctx)
+	case group.FieldOwnerUserID:
+		return m.OldOwnerUserID(ctx)
+	case group.FieldIsPublic:
+		return m.OldIsPublic(ctx)
 	}
 	return nil, fmt.Errorf("unknown Group field %s", name)
 }
@@ -24477,6 +24761,20 @@ func (m *GroupMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetRpmLimit(v)
 		return nil
+	case group.FieldOwnerUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOwnerUserID(v)
+		return nil
+	case group.FieldIsPublic:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetIsPublic(v)
+		return nil
 	}
 	return fmt.Errorf("unknown Group field %s", name)
 }
@@ -24548,6 +24846,9 @@ func (m *GroupMutation) AddedFields() []string {
 	if m.addrpm_limit != nil {
 		fields = append(fields, group.FieldRpmLimit)
 	}
+	if m.addowner_user_id != nil {
+		fields = append(fields, group.FieldOwnerUserID)
+	}
 	return fields
 }
 
@@ -24598,6 +24899,8 @@ func (m *GroupMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedSortOrder()
 	case group.FieldRpmLimit:
 		return m.AddedRpmLimit()
+	case group.FieldOwnerUserID:
+		return m.AddedOwnerUserID()
 	}
 	return nil, false
 }
@@ -24754,6 +25057,13 @@ func (m *GroupMutation) AddField(name string, value ent.Value) error {
 		}
 		m.AddRpmLimit(v)
 		return nil
+	case group.FieldOwnerUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddOwnerUserID(v)
+		return nil
 	}
 	return fmt.Errorf("unknown Group numeric field %s", name)
 }
@@ -24809,6 +25119,9 @@ func (m *GroupMutation) ClearedFields() []string {
 	}
 	if m.FieldCleared(group.FieldModelRouting) {
 		fields = append(fields, group.FieldModelRouting)
+	}
+	if m.FieldCleared(group.FieldOwnerUserID) {
+		fields = append(fields, group.FieldOwnerUserID)
 	}
 	return fields
 }
@@ -24871,6 +25184,9 @@ func (m *GroupMutation) ClearField(name string) error {
 		return nil
 	case group.FieldModelRouting:
 		m.ClearModelRouting()
+		return nil
+	case group.FieldOwnerUserID:
+		m.ClearOwnerUserID()
 		return nil
 	}
 	return fmt.Errorf("unknown Group nullable field %s", name)
@@ -25026,6 +25342,12 @@ func (m *GroupMutation) ResetField(name string) error {
 		return nil
 	case group.FieldRpmLimit:
 		m.ResetRpmLimit()
+		return nil
+	case group.FieldOwnerUserID:
+		m.ResetOwnerUserID()
+		return nil
+	case group.FieldIsPublic:
+		m.ResetIsPublic()
 		return nil
 	}
 	return fmt.Errorf("unknown Group field %s", name)
@@ -34830,6 +35152,9 @@ type ProxyMutation struct {
 	fallback_mode       *string
 	expiry_warn_days    *int
 	addexpiry_warn_days *int
+	owner_user_id       *int64
+	addowner_user_id    *int64
+	is_public           *bool
 	clearedFields       map[string]struct{}
 	accounts            map[int64]struct{}
 	removedaccounts     map[int64]struct{}
@@ -35548,6 +35873,112 @@ func (m *ProxyMutation) ResetExpiryWarnDays() {
 	m.addexpiry_warn_days = nil
 }
 
+// SetOwnerUserID sets the "owner_user_id" field.
+func (m *ProxyMutation) SetOwnerUserID(i int64) {
+	m.owner_user_id = &i
+	m.addowner_user_id = nil
+}
+
+// OwnerUserID returns the value of the "owner_user_id" field in the mutation.
+func (m *ProxyMutation) OwnerUserID() (r int64, exists bool) {
+	v := m.owner_user_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOwnerUserID returns the old "owner_user_id" field's value of the Proxy entity.
+// If the Proxy object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProxyMutation) OldOwnerUserID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOwnerUserID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOwnerUserID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOwnerUserID: %w", err)
+	}
+	return oldValue.OwnerUserID, nil
+}
+
+// AddOwnerUserID adds i to the "owner_user_id" field.
+func (m *ProxyMutation) AddOwnerUserID(i int64) {
+	if m.addowner_user_id != nil {
+		*m.addowner_user_id += i
+	} else {
+		m.addowner_user_id = &i
+	}
+}
+
+// AddedOwnerUserID returns the value that was added to the "owner_user_id" field in this mutation.
+func (m *ProxyMutation) AddedOwnerUserID() (r int64, exists bool) {
+	v := m.addowner_user_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearOwnerUserID clears the value of the "owner_user_id" field.
+func (m *ProxyMutation) ClearOwnerUserID() {
+	m.owner_user_id = nil
+	m.addowner_user_id = nil
+	m.clearedFields[proxy.FieldOwnerUserID] = struct{}{}
+}
+
+// OwnerUserIDCleared returns if the "owner_user_id" field was cleared in this mutation.
+func (m *ProxyMutation) OwnerUserIDCleared() bool {
+	_, ok := m.clearedFields[proxy.FieldOwnerUserID]
+	return ok
+}
+
+// ResetOwnerUserID resets all changes to the "owner_user_id" field.
+func (m *ProxyMutation) ResetOwnerUserID() {
+	m.owner_user_id = nil
+	m.addowner_user_id = nil
+	delete(m.clearedFields, proxy.FieldOwnerUserID)
+}
+
+// SetIsPublic sets the "is_public" field.
+func (m *ProxyMutation) SetIsPublic(b bool) {
+	m.is_public = &b
+}
+
+// IsPublic returns the value of the "is_public" field in the mutation.
+func (m *ProxyMutation) IsPublic() (r bool, exists bool) {
+	v := m.is_public
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldIsPublic returns the old "is_public" field's value of the Proxy entity.
+// If the Proxy object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProxyMutation) OldIsPublic(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldIsPublic is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldIsPublic requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldIsPublic: %w", err)
+	}
+	return oldValue.IsPublic, nil
+}
+
+// ResetIsPublic resets all changes to the "is_public" field.
+func (m *ProxyMutation) ResetIsPublic() {
+	m.is_public = nil
+}
+
 // AddAccountIDs adds the "accounts" edge to the Account entity by ids.
 func (m *ProxyMutation) AddAccountIDs(ids ...int64) {
 	if m.accounts == nil {
@@ -35663,7 +36094,7 @@ func (m *ProxyMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ProxyMutation) Fields() []string {
-	fields := make([]string, 0, 14)
+	fields := make([]string, 0, 16)
 	if m.created_at != nil {
 		fields = append(fields, proxy.FieldCreatedAt)
 	}
@@ -35706,6 +36137,12 @@ func (m *ProxyMutation) Fields() []string {
 	if m.expiry_warn_days != nil {
 		fields = append(fields, proxy.FieldExpiryWarnDays)
 	}
+	if m.owner_user_id != nil {
+		fields = append(fields, proxy.FieldOwnerUserID)
+	}
+	if m.is_public != nil {
+		fields = append(fields, proxy.FieldIsPublic)
+	}
 	return fields
 }
 
@@ -35742,6 +36179,10 @@ func (m *ProxyMutation) Field(name string) (ent.Value, bool) {
 		return m.BackupProxyID()
 	case proxy.FieldExpiryWarnDays:
 		return m.ExpiryWarnDays()
+	case proxy.FieldOwnerUserID:
+		return m.OwnerUserID()
+	case proxy.FieldIsPublic:
+		return m.IsPublic()
 	}
 	return nil, false
 }
@@ -35779,6 +36220,10 @@ func (m *ProxyMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldBackupProxyID(ctx)
 	case proxy.FieldExpiryWarnDays:
 		return m.OldExpiryWarnDays(ctx)
+	case proxy.FieldOwnerUserID:
+		return m.OldOwnerUserID(ctx)
+	case proxy.FieldIsPublic:
+		return m.OldIsPublic(ctx)
 	}
 	return nil, fmt.Errorf("unknown Proxy field %s", name)
 }
@@ -35886,6 +36331,20 @@ func (m *ProxyMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetExpiryWarnDays(v)
 		return nil
+	case proxy.FieldOwnerUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOwnerUserID(v)
+		return nil
+	case proxy.FieldIsPublic:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetIsPublic(v)
+		return nil
 	}
 	return fmt.Errorf("unknown Proxy field %s", name)
 }
@@ -35900,6 +36359,9 @@ func (m *ProxyMutation) AddedFields() []string {
 	if m.addexpiry_warn_days != nil {
 		fields = append(fields, proxy.FieldExpiryWarnDays)
 	}
+	if m.addowner_user_id != nil {
+		fields = append(fields, proxy.FieldOwnerUserID)
+	}
 	return fields
 }
 
@@ -35912,6 +36374,8 @@ func (m *ProxyMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedPort()
 	case proxy.FieldExpiryWarnDays:
 		return m.AddedExpiryWarnDays()
+	case proxy.FieldOwnerUserID:
+		return m.AddedOwnerUserID()
 	}
 	return nil, false
 }
@@ -35935,6 +36399,13 @@ func (m *ProxyMutation) AddField(name string, value ent.Value) error {
 		}
 		m.AddExpiryWarnDays(v)
 		return nil
+	case proxy.FieldOwnerUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddOwnerUserID(v)
+		return nil
 	}
 	return fmt.Errorf("unknown Proxy numeric field %s", name)
 }
@@ -35957,6 +36428,9 @@ func (m *ProxyMutation) ClearedFields() []string {
 	}
 	if m.FieldCleared(proxy.FieldBackupProxyID) {
 		fields = append(fields, proxy.FieldBackupProxyID)
+	}
+	if m.FieldCleared(proxy.FieldOwnerUserID) {
+		fields = append(fields, proxy.FieldOwnerUserID)
 	}
 	return fields
 }
@@ -35986,6 +36460,9 @@ func (m *ProxyMutation) ClearField(name string) error {
 		return nil
 	case proxy.FieldBackupProxyID:
 		m.ClearBackupProxyID()
+		return nil
+	case proxy.FieldOwnerUserID:
+		m.ClearOwnerUserID()
 		return nil
 	}
 	return fmt.Errorf("unknown Proxy nullable field %s", name)
@@ -36036,6 +36513,12 @@ func (m *ProxyMutation) ResetField(name string) error {
 		return nil
 	case proxy.FieldExpiryWarnDays:
 		m.ResetExpiryWarnDays()
+		return nil
+	case proxy.FieldOwnerUserID:
+		m.ResetOwnerUserID()
+		return nil
+	case proxy.FieldIsPublic:
+		m.ResetIsPublic()
 		return nil
 	}
 	return fmt.Errorf("unknown Proxy field %s", name)

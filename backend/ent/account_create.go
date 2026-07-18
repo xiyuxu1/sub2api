@@ -419,6 +419,34 @@ func (_c *AccountCreate) SetNillableQuotaDimension(v *account.QuotaDimension) *A
 	return _c
 }
 
+// SetOwnerUserID sets the "owner_user_id" field.
+func (_c *AccountCreate) SetOwnerUserID(v int64) *AccountCreate {
+	_c.mutation.SetOwnerUserID(v)
+	return _c
+}
+
+// SetNillableOwnerUserID sets the "owner_user_id" field if the given value is not nil.
+func (_c *AccountCreate) SetNillableOwnerUserID(v *int64) *AccountCreate {
+	if v != nil {
+		_c.SetOwnerUserID(*v)
+	}
+	return _c
+}
+
+// SetIsPublic sets the "is_public" field.
+func (_c *AccountCreate) SetIsPublic(v bool) *AccountCreate {
+	_c.mutation.SetIsPublic(v)
+	return _c
+}
+
+// SetNillableIsPublic sets the "is_public" field if the given value is not nil.
+func (_c *AccountCreate) SetNillableIsPublic(v *bool) *AccountCreate {
+	if v != nil {
+		_c.SetIsPublic(*v)
+	}
+	return _c
+}
+
 // AddGroupIDs adds the "groups" edge to the Group entity by IDs.
 func (_c *AccountCreate) AddGroupIDs(ids ...int64) *AccountCreate {
 	_c.mutation.AddGroupIDs(ids...)
@@ -581,6 +609,10 @@ func (_c *AccountCreate) defaults() error {
 		v := account.DefaultQuotaDimension
 		_c.mutation.SetQuotaDimension(v)
 	}
+	if _, ok := _c.mutation.IsPublic(); !ok {
+		v := account.DefaultIsPublic
+		_c.mutation.SetIsPublic(v)
+	}
 	return nil
 }
 
@@ -657,6 +689,9 @@ func (_c *AccountCreate) check() error {
 		if err := account.QuotaDimensionValidator(v); err != nil {
 			return &ValidationError{Name: "quota_dimension", err: fmt.Errorf(`ent: validator failed for field "Account.quota_dimension": %w`, err)}
 		}
+	}
+	if _, ok := _c.mutation.IsPublic(); !ok {
+		return &ValidationError{Name: "is_public", err: errors.New(`ent: missing required field "Account.is_public"`)}
 	}
 	return nil
 }
@@ -800,6 +835,14 @@ func (_c *AccountCreate) createSpec() (*Account, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.QuotaDimension(); ok {
 		_spec.SetField(account.FieldQuotaDimension, field.TypeEnum, value)
 		_node.QuotaDimension = value
+	}
+	if value, ok := _c.mutation.OwnerUserID(); ok {
+		_spec.SetField(account.FieldOwnerUserID, field.TypeInt64, value)
+		_node.OwnerUserID = &value
+	}
+	if value, ok := _c.mutation.IsPublic(); ok {
+		_spec.SetField(account.FieldIsPublic, field.TypeBool, value)
+		_node.IsPublic = value
 	}
 	if nodes := _c.mutation.GroupsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
@@ -1431,6 +1474,42 @@ func (u *AccountUpsert) UpdateQuotaDimension() *AccountUpsert {
 	return u
 }
 
+// SetOwnerUserID sets the "owner_user_id" field.
+func (u *AccountUpsert) SetOwnerUserID(v int64) *AccountUpsert {
+	u.Set(account.FieldOwnerUserID, v)
+	return u
+}
+
+// UpdateOwnerUserID sets the "owner_user_id" field to the value that was provided on create.
+func (u *AccountUpsert) UpdateOwnerUserID() *AccountUpsert {
+	u.SetExcluded(account.FieldOwnerUserID)
+	return u
+}
+
+// AddOwnerUserID adds v to the "owner_user_id" field.
+func (u *AccountUpsert) AddOwnerUserID(v int64) *AccountUpsert {
+	u.Add(account.FieldOwnerUserID, v)
+	return u
+}
+
+// ClearOwnerUserID clears the value of the "owner_user_id" field.
+func (u *AccountUpsert) ClearOwnerUserID() *AccountUpsert {
+	u.SetNull(account.FieldOwnerUserID)
+	return u
+}
+
+// SetIsPublic sets the "is_public" field.
+func (u *AccountUpsert) SetIsPublic(v bool) *AccountUpsert {
+	u.Set(account.FieldIsPublic, v)
+	return u
+}
+
+// UpdateIsPublic sets the "is_public" field to the value that was provided on create.
+func (u *AccountUpsert) UpdateIsPublic() *AccountUpsert {
+	u.SetExcluded(account.FieldIsPublic)
+	return u
+}
+
 // UpdateNewValues updates the mutable fields using the new values that were set on create.
 // Using this option is equivalent to using:
 //
@@ -2047,6 +2126,48 @@ func (u *AccountUpsertOne) SetQuotaDimension(v account.QuotaDimension) *AccountU
 func (u *AccountUpsertOne) UpdateQuotaDimension() *AccountUpsertOne {
 	return u.Update(func(s *AccountUpsert) {
 		s.UpdateQuotaDimension()
+	})
+}
+
+// SetOwnerUserID sets the "owner_user_id" field.
+func (u *AccountUpsertOne) SetOwnerUserID(v int64) *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.SetOwnerUserID(v)
+	})
+}
+
+// AddOwnerUserID adds v to the "owner_user_id" field.
+func (u *AccountUpsertOne) AddOwnerUserID(v int64) *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.AddOwnerUserID(v)
+	})
+}
+
+// UpdateOwnerUserID sets the "owner_user_id" field to the value that was provided on create.
+func (u *AccountUpsertOne) UpdateOwnerUserID() *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.UpdateOwnerUserID()
+	})
+}
+
+// ClearOwnerUserID clears the value of the "owner_user_id" field.
+func (u *AccountUpsertOne) ClearOwnerUserID() *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.ClearOwnerUserID()
+	})
+}
+
+// SetIsPublic sets the "is_public" field.
+func (u *AccountUpsertOne) SetIsPublic(v bool) *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.SetIsPublic(v)
+	})
+}
+
+// UpdateIsPublic sets the "is_public" field to the value that was provided on create.
+func (u *AccountUpsertOne) UpdateIsPublic() *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.UpdateIsPublic()
 	})
 }
 
@@ -2832,6 +2953,48 @@ func (u *AccountUpsertBulk) SetQuotaDimension(v account.QuotaDimension) *Account
 func (u *AccountUpsertBulk) UpdateQuotaDimension() *AccountUpsertBulk {
 	return u.Update(func(s *AccountUpsert) {
 		s.UpdateQuotaDimension()
+	})
+}
+
+// SetOwnerUserID sets the "owner_user_id" field.
+func (u *AccountUpsertBulk) SetOwnerUserID(v int64) *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.SetOwnerUserID(v)
+	})
+}
+
+// AddOwnerUserID adds v to the "owner_user_id" field.
+func (u *AccountUpsertBulk) AddOwnerUserID(v int64) *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.AddOwnerUserID(v)
+	})
+}
+
+// UpdateOwnerUserID sets the "owner_user_id" field to the value that was provided on create.
+func (u *AccountUpsertBulk) UpdateOwnerUserID() *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.UpdateOwnerUserID()
+	})
+}
+
+// ClearOwnerUserID clears the value of the "owner_user_id" field.
+func (u *AccountUpsertBulk) ClearOwnerUserID() *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.ClearOwnerUserID()
+	})
+}
+
+// SetIsPublic sets the "is_public" field.
+func (u *AccountUpsertBulk) SetIsPublic(v bool) *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.SetIsPublic(v)
+	})
+}
+
+// UpdateIsPublic sets the "is_public" field to the value that was provided on create.
+func (u *AccountUpsertBulk) UpdateIsPublic() *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.UpdateIsPublic()
 	})
 }
 

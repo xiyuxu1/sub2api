@@ -45,6 +45,10 @@ type Proxy struct {
 	BackupProxyID *int64 `json:"backup_proxy_id,omitempty"`
 	// Days before expiry to flag as expiring-soon (per proxy).
 	ExpiryWarnDays int `json:"expiry_warn_days,omitempty"`
+	// Owner user id (fork). NULL = system/admin legacy.
+	OwnerUserID *int64 `json:"owner_user_id,omitempty"`
+	// Management visibility (fork). true = visible to other non-admin users.
+	IsPublic bool `json:"is_public,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the ProxyQuery when eager-loading is set.
 	Edges        ProxyEdges `json:"edges"`
@@ -87,7 +91,9 @@ func (*Proxy) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case proxy.FieldID, proxy.FieldPort, proxy.FieldBackupProxyID, proxy.FieldExpiryWarnDays:
+		case proxy.FieldIsPublic:
+			values[i] = new(sql.NullBool)
+		case proxy.FieldID, proxy.FieldPort, proxy.FieldBackupProxyID, proxy.FieldExpiryWarnDays, proxy.FieldOwnerUserID:
 			values[i] = new(sql.NullInt64)
 		case proxy.FieldName, proxy.FieldProtocol, proxy.FieldHost, proxy.FieldUsername, proxy.FieldPassword, proxy.FieldStatus, proxy.FieldFallbackMode:
 			values[i] = new(sql.NullString)
@@ -203,6 +209,19 @@ func (_m *Proxy) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.ExpiryWarnDays = int(value.Int64)
 			}
+		case proxy.FieldOwnerUserID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field owner_user_id", values[i])
+			} else if value.Valid {
+				_m.OwnerUserID = new(int64)
+				*_m.OwnerUserID = value.Int64
+			}
+		case proxy.FieldIsPublic:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field is_public", values[i])
+			} else if value.Valid {
+				_m.IsPublic = value.Bool
+			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -300,6 +319,14 @@ func (_m *Proxy) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("expiry_warn_days=")
 	builder.WriteString(fmt.Sprintf("%v", _m.ExpiryWarnDays))
+	builder.WriteString(", ")
+	if v := _m.OwnerUserID; v != nil {
+		builder.WriteString("owner_user_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	builder.WriteString("is_public=")
+	builder.WriteString(fmt.Sprintf("%v", _m.IsPublic))
 	builder.WriteByte(')')
 	return builder.String()
 }

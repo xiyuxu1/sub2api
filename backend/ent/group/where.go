@@ -280,6 +280,16 @@ func RpmLimit(v int) predicate.Group {
 	return predicate.Group(sql.FieldEQ(FieldRpmLimit, v))
 }
 
+// OwnerUserID applies equality check predicate on the "owner_user_id" field. It's identical to OwnerUserIDEQ.
+func OwnerUserID(v int64) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldOwnerUserID, v))
+}
+
+// IsPublic applies equality check predicate on the "is_public" field. It's identical to IsPublicEQ.
+func IsPublic(v bool) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldIsPublic, v))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
 func CreatedAtEQ(v time.Time) predicate.Group {
 	return predicate.Group(sql.FieldEQ(FieldCreatedAt, v))
@@ -2103,6 +2113,66 @@ func RpmLimitLT(v int) predicate.Group {
 // RpmLimitLTE applies the LTE predicate on the "rpm_limit" field.
 func RpmLimitLTE(v int) predicate.Group {
 	return predicate.Group(sql.FieldLTE(FieldRpmLimit, v))
+}
+
+// OwnerUserIDEQ applies the EQ predicate on the "owner_user_id" field.
+func OwnerUserIDEQ(v int64) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldOwnerUserID, v))
+}
+
+// OwnerUserIDNEQ applies the NEQ predicate on the "owner_user_id" field.
+func OwnerUserIDNEQ(v int64) predicate.Group {
+	return predicate.Group(sql.FieldNEQ(FieldOwnerUserID, v))
+}
+
+// OwnerUserIDIn applies the In predicate on the "owner_user_id" field.
+func OwnerUserIDIn(vs ...int64) predicate.Group {
+	return predicate.Group(sql.FieldIn(FieldOwnerUserID, vs...))
+}
+
+// OwnerUserIDNotIn applies the NotIn predicate on the "owner_user_id" field.
+func OwnerUserIDNotIn(vs ...int64) predicate.Group {
+	return predicate.Group(sql.FieldNotIn(FieldOwnerUserID, vs...))
+}
+
+// OwnerUserIDGT applies the GT predicate on the "owner_user_id" field.
+func OwnerUserIDGT(v int64) predicate.Group {
+	return predicate.Group(sql.FieldGT(FieldOwnerUserID, v))
+}
+
+// OwnerUserIDGTE applies the GTE predicate on the "owner_user_id" field.
+func OwnerUserIDGTE(v int64) predicate.Group {
+	return predicate.Group(sql.FieldGTE(FieldOwnerUserID, v))
+}
+
+// OwnerUserIDLT applies the LT predicate on the "owner_user_id" field.
+func OwnerUserIDLT(v int64) predicate.Group {
+	return predicate.Group(sql.FieldLT(FieldOwnerUserID, v))
+}
+
+// OwnerUserIDLTE applies the LTE predicate on the "owner_user_id" field.
+func OwnerUserIDLTE(v int64) predicate.Group {
+	return predicate.Group(sql.FieldLTE(FieldOwnerUserID, v))
+}
+
+// OwnerUserIDIsNil applies the IsNil predicate on the "owner_user_id" field.
+func OwnerUserIDIsNil() predicate.Group {
+	return predicate.Group(sql.FieldIsNull(FieldOwnerUserID))
+}
+
+// OwnerUserIDNotNil applies the NotNil predicate on the "owner_user_id" field.
+func OwnerUserIDNotNil() predicate.Group {
+	return predicate.Group(sql.FieldNotNull(FieldOwnerUserID))
+}
+
+// IsPublicEQ applies the EQ predicate on the "is_public" field.
+func IsPublicEQ(v bool) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldIsPublic, v))
+}
+
+// IsPublicNEQ applies the NEQ predicate on the "is_public" field.
+func IsPublicNEQ(v bool) predicate.Group {
+	return predicate.Group(sql.FieldNEQ(FieldIsPublic, v))
 }
 
 // HasAPIKeys applies the HasEdge predicate on the "api_keys" edge.
