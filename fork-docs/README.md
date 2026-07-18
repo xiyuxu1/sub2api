@@ -29,19 +29,22 @@
 
 ### 授权规则
 - 读：owner 或 admin → 完整（脱敏后）详情；其他普通用户 → 仅当 `is_public` 且只给**最小摘要**（绝不含 credentials / 代理密码 / extra / 错误详情）。
-- 写（改/删）：仅 owner（admin 走原有 admin 接口）。用**原子** `UPDATE/DELETE ... WHERE id=? AND owner_user_id=?`，避免先查后写竞态。非 owner → 403，天然满足"删不掉 admin/别人的"。
+- 写（改/删）：非 admin 仅能碰自己的，用**原子** `UPDATE/DELETE ... WHERE id=? AND owner_user_id=?`，命中 0 行 → 404，天然满足"删不掉 admin/别人的"；admin 不受限。删除父账号若挂有 admin 的 spark shadow 子账号，应拒绝（不走会级联硬删 shadow 的 admin 删除路径）。
 - 必须覆盖的旁路（否则越权）：OAuth 建号（state 要签名绑定 user id、一次性、短 TTL，回调不信前端传的 owner）、Codex 导入、data import/export、batch/bulk、refresh/test、stats、代理质量检测，以及所有关联 ID（account.group_ids / account.proxy_id / proxy.backup_proxy_id）。
 
-## 3. 改动清单（全部为新增文件，尽量不碰上游文件）
+## 3. 实现方式：就地改 + owner 收口（不做 /self 平行体系）
+
+> **决策更正（2026-07）**：一度打算新增 `/self` 窄接口 + 独立前端，但账号导入弹窗 `frontend/src/components/account/CreateAccountModal.vue` 是 **6248 行的巨型组件**，15+ 处硬编码调 `adminAPI.accounts.*` 和各平台 OAuth 接口。要让普通用户获得**和管理员完全一样**的导入体验（多平台、OAuth 授权跳转、Codex PAT、session 导入…），复用这个组件比重写划算得多；而复用它就必须让它调的那些 **admin 账号接口对普通用户也可用**。因此改为"就地改"：**开放现有账号功能给普通用户 + 在 service 层按 owner 收口**，前端几乎原样复用。代价是改动落在账号核心文件上、合上游冲突更大——这是"功能完整、体验一致"换来的，已知情接受。`/self` 脚手架已回退。
+
 后端：
-- `backend/migrations/9000_xdl_resource_visibility.sql` — 加上述两列 + 索引。**fork 专属命名，上线后永不重命名/改内容**（迁移 runner 按完整文件名 + SHA256 记录）。
-- `backend/ent/schema/{account,group,proxy}.go` — 各加两个字段（**这是必须改的上游文件**）。改后 `cd backend && go generate ./ent/...` 重新生成 ent 代码（**只跑 ent，别跑 `./...`**——完整 generate 会连带跑 wire，本 checkout 的 wire 重生成有个与本改动无关的 `PromptAdminService` provider 报错）；生成代码冲突时**不手工解，按最终 schema 重跑**。
-- `backend/internal/server/routes/self.go` — 在现有 JWT 用户路由下注册 `/self/accounts`、`/self/proxies`、`/self/groups`。
-- `backend/internal/handler/self/*.go` — list / create / update / delete（原子 owner guard）。
-- `backend/internal/handler/dto/self_*.go` — 独立脱敏 DTO（public 摘要 vs owner 详情）。
+- `backend/migrations/9000_xdl_resource_visibility.sql` — 加两列 + owner 索引。**fork 专属命名，上线后永不重命名/改内容**（迁移 runner 按完整文件名 + SHA256 记录）。已完成。
+- `backend/ent/schema/{account,group,proxy}.go` — 各加 owner_user_id + is_public 字段。改后 `cd backend && go generate ./ent/...` 重生成（**只跑 ent**）。已完成。
+- **路由放开**：把普通用户需要的那部分账号端点（create / OAuth 授权与 exchange / apply-oauth / createOpenAICodexPAT / import-codex-session / update / delete / test / refresh / list / get / stats）注册到 JWT 认证组，指向**现有** `h.Admin.Account.*` handler。危险的 admin 基础设施端点（crs 同步、上游计费探测设置、batch、models sync、reset-quota 等）**保持 admin-only**。
+- **service 层 owner 收口**（安全核心）：账号 service 的 list/get/create/update/delete/bulk 按"调用者是否 admin + 其 userID"收口。非 admin：list 只见自己的+public；get/改/删只能碰自己的（原子 `WHERE ... AND owner_user_id=?`）；create 写 owner=自己。admin：不受限。actor 身份从认证中间件经 context 下传。
+- 保留了上游一个 wire bind 修复（`securityaudit.PromptAdminService`→`*PromptService`），使 `go generate`(wire) 可重新生成。
 
 前端：
-- `frontend/src/views/self/` + `frontend/src/api/self/` — 三个 `requiresAdmin:false` 页面（My Accounts/Proxies/Groups）+ 独立 API client + 导入弹窗加"公开/私有"开关。尽量不改现有 admin 页面。
+- 复用现有 `AccountsView` + `CreateAccountModal` 等，**基本不改业务逻辑**；只需：账号页/菜单对普通用户放开（`requiresAdmin:false`），导入/编辑弹窗加"公开/私有"开关，非管理员隐藏纯管理项（如把号绑进共享分组，仍归 admin 审核）。
 
 ## 4. 分期
 - **P1 账号**：schema+迁移+`/self/accounts` 全套+导入+脱敏 DTO+前端 → 端到端跑通，并真实体验一次 upstream merge。

@@ -77,18 +77,6 @@ func RegisterUserRoutes(
 			groups.GET("/rates", h.APIKey.GetUserGroupRates)
 		}
 
-		// fork: 普通用户自助管理自己导入的资源（/self/*）
-		self := authenticated.Group("/self")
-		{
-			selfAccounts := self.Group("/accounts")
-			{
-				selfAccounts.GET("", h.SelfAccount.List)
-				selfAccounts.POST("", h.SelfAccount.Create)
-				selfAccounts.PATCH("/:id", h.SelfAccount.Update)
-				selfAccounts.DELETE("/:id", h.SelfAccount.Delete)
-			}
-		}
-
 		// 用户可用渠道（非管理员接口）
 		channels := authenticated.Group("/channels")
 		{

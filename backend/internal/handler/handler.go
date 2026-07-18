@@ -2,7 +2,6 @@ package handler
 
 import (
 	"github.com/Wei-Shaw/sub2api/internal/handler/admin"
-	"github.com/Wei-Shaw/sub2api/internal/handler/self"
 	"github.com/Wei-Shaw/sub2api/internal/securityaudit"
 )
 
@@ -64,8 +63,6 @@ type Handlers struct {
 	AvailableChannel *AvailableChannelHandler
 	AsyncImage       *AsyncImageHandler
 	BatchImage       *BatchImageHandler
-	// fork: 普通用户自助管理自己的资源（/self/*）
-	SelfAccount *self.SelfAccountHandler
 }
 
 // BuildInfo contains build-time information
