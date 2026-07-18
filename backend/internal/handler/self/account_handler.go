@@ -4,7 +4,11 @@
 //   - 挂在现有 JWT 用户路由下（/self/*），admin 路由/handler/gateway 一律不动。
 //   - 每个资源有 owner_user_id（归属人）+ is_public（管理可见性）。
 //   - 普通用户只能看到"自己的 + 公开的"，只能改/删"自己的"。
-//   - 独立脱敏 DTO：绝不返回 credentials / extra / 代理密码等敏感字段。
+//   - 独立脱敏 DTO：绝不返回 credentials / extra / 代理密码等敏感字段；
+//     public 视图用更精简的 DTO，避免泄漏使用节奏/到期时间。
+//   - 写操作走 owner 条件的【原子】ent 变更（WHERE id AND owner_user_id），不做先查后写。
+//   - 删除【不复用】admin 的级联删除（admin 版会连带删 admin 拥有的 spark shadow）；
+//     改为 owner 条件软删，且拒绝删除仍挂有子账号(shadow)的父账号。
 //   - 自助创建的账号【不绑分组】；是否进共享池由 admin 审核后在后台绑定。
 package self
 
@@ -23,8 +27,8 @@ import (
 
 // SelfAccountHandler 处理普通用户自助管理自己账号的请求。
 type SelfAccountHandler struct {
-	adminService service.AdminService // 复用其 Create/Delete 的完整校验逻辑
-	ent          *ent.Client          // 直接做 owner 过滤查询与 owner 写入
+	adminService service.AdminService // 仅复用其 CreateAccount 的完整校验逻辑
+	ent          *ent.Client          // owner 过滤查询与 owner 条件原子写
 }
 
 // NewSelfAccountHandler 构造 SelfAccountHandler（供 wire 注入）。
@@ -32,7 +36,7 @@ func NewSelfAccountHandler(adminService service.AdminService, entClient *ent.Cli
 	return &SelfAccountHandler{adminService: adminService, ent: entClient}
 }
 
-// selfAccountDTO 是给普通用户看的脱敏账号视图，绝不含凭证/extra。
+// selfAccountDTO 是账号 owner 自己看的脱敏视图，绝不含凭证/extra。
 type selfAccountDTO struct {
 	ID         int64   `json:"id"`
 	Name       string  `json:"name"`
@@ -41,14 +45,24 @@ type selfAccountDTO struct {
 	Status     string  `json:"status"`
 	IsPublic   bool    `json:"is_public"`
 	IsMine     bool    `json:"is_mine"`
-	Notes      *string `json:"notes,omitempty"`       // 仅自己的账号返回
-	ExpiresAt  *int64  `json:"expires_at,omitempty"`  // unix 秒
-	LastUsedAt *int64  `json:"last_used_at,omitempty"`// unix 秒
+	Notes      *string `json:"notes,omitempty"`
+	ExpiresAt  *int64  `json:"expires_at,omitempty"`   // unix 秒
+	LastUsedAt *int64  `json:"last_used_at,omitempty"` // unix 秒
 	CreatedAt  int64   `json:"created_at"`
 }
 
-func mapAccount(a *ent.Account, uid int64) selfAccountDTO {
-	mine := a.OwnerUserID != nil && *a.OwnerUserID == uid
+// publicAccountDTO 是别人公开账号的最小摘要：只够知道"存在一个某平台的共享账号"。
+// 刻意不含 status / last_used_at / expires_at / notes，避免泄漏凭证健康与使用节奏。
+type publicAccountDTO struct {
+	ID       int64  `json:"id"`
+	Name     string `json:"name"`
+	Platform string `json:"platform"`
+	Type     string `json:"type"`
+	IsPublic bool   `json:"is_public"`
+	IsMine   bool   `json:"is_mine"` // 恒 false
+}
+
+func mapOwnerAccount(a *ent.Account) selfAccountDTO {
 	d := selfAccountDTO{
 		ID:        a.ID,
 		Name:      a.Name,
@@ -56,11 +70,9 @@ func mapAccount(a *ent.Account, uid int64) selfAccountDTO {
 		Type:      a.Type,
 		Status:    a.Status,
 		IsPublic:  a.IsPublic,
-		IsMine:    mine,
+		IsMine:    true,
+		Notes:     a.Notes,
 		CreatedAt: a.CreatedAt.Unix(),
-	}
-	if mine {
-		d.Notes = a.Notes
 	}
 	if a.ExpiresAt != nil {
 		v := a.ExpiresAt.Unix()
@@ -73,9 +85,20 @@ func mapAccount(a *ent.Account, uid int64) selfAccountDTO {
 	return d
 }
 
+func mapPublicAccount(a *ent.Account) publicAccountDTO {
+	return publicAccountDTO{
+		ID:       a.ID,
+		Name:     a.Name,
+		Platform: a.Platform,
+		Type:     a.Type,
+		IsPublic: a.IsPublic,
+		IsMine:   false,
+	}
+}
+
 // List 列出普通用户可见的账号。GET /self/accounts?scope=mine|public
-//   - mine（默认）：owner == 当前用户
-//   - public：别人公开的（is_public 且 owner != 当前用户，含 admin/系统 owner=NULL 的公开账号）
+//   - mine（默认）：owner == 当前用户，返回完整脱敏视图。
+//   - public：别人公开的（is_public 且 owner 为空或非当前用户），返回最小摘要。
 func (h *SelfAccountHandler) List(c *gin.Context) {
 	subject, ok := middleware2.GetAuthSubjectFromContext(c)
 	if !ok {
@@ -83,24 +106,38 @@ func (h *SelfAccountHandler) List(c *gin.Context) {
 		return
 	}
 	uid := subject.UserID
+	ctx := c.Request.Context()
 
-	q := h.ent.Account.Query()
-	switch strings.ToLower(strings.TrimSpace(c.DefaultQuery("scope", "mine"))) {
-	case "public":
-		q = q.Where(account.IsPublicEQ(true), account.Not(account.OwnerUserIDEQ(uid)))
-	default: // mine
-		q = q.Where(account.OwnerUserIDEQ(uid))
+	if strings.EqualFold(strings.TrimSpace(c.DefaultQuery("scope", "mine")), "public") {
+		// 显式处理 NULL：owner 为空（系统/admin）或 owner != 我，且 is_public。
+		rows, err := h.ent.Account.Query().
+			Where(
+				account.IsPublicEQ(true),
+				account.Or(account.OwnerUserIDIsNil(), account.OwnerUserIDNEQ(uid)),
+			).
+			Order(ent.Desc(account.FieldCreatedAt)).Limit(500).All(ctx)
+		if err != nil {
+			response.ErrorFrom(c, err)
+			return
+		}
+		out := make([]publicAccountDTO, 0, len(rows))
+		for _, a := range rows {
+			out = append(out, mapPublicAccount(a))
+		}
+		response.Success(c, out)
+		return
 	}
 
-	// 软删除由 ent 拦截器自动过滤。上限保护，避免无分页拉全表。
-	rows, err := q.Order(ent.Desc(account.FieldCreatedAt)).Limit(500).All(c.Request.Context())
+	rows, err := h.ent.Account.Query().
+		Where(account.OwnerUserIDEQ(uid)).
+		Order(ent.Desc(account.FieldCreatedAt)).Limit(500).All(ctx)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}
 	out := make([]selfAccountDTO, 0, len(rows))
 	for _, a := range rows {
-		out = append(out, mapAccount(a, uid))
+		out = append(out, mapOwnerAccount(a))
 	}
 	response.Success(c, out)
 }
@@ -120,6 +157,7 @@ type createSelfAccountRequest struct {
 
 // Create 自助创建账号。POST /self/accounts
 // 复用 adminService.CreateAccount 的完整校验，随后由服务端写入 owner + is_public。
+// owner 写入失败时补偿删除刚建的账号，避免留下无主孤儿。
 func (h *SelfAccountHandler) Create(c *gin.Context) {
 	subject, ok := middleware2.GetAuthSubjectFromContext(c)
 	if !ok {
@@ -127,6 +165,7 @@ func (h *SelfAccountHandler) Create(c *gin.Context) {
 		return
 	}
 	uid := subject.UserID
+	ctx := c.Request.Context()
 
 	var req createSelfAccountRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -153,13 +192,12 @@ func (h *SelfAccountHandler) Create(c *gin.Context) {
 		SkipDefaultGroupBind: true,
 	}
 
-	created, err := h.adminService.CreateAccount(c.Request.Context(), input)
+	created, err := h.adminService.CreateAccount(ctx, input)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}
 
-	// 写入归属人与可见性（owner 由服务端写死，不信前端）。
 	isPublic := true
 	if req.IsPublic != nil {
 		isPublic = *req.IsPublic
@@ -167,12 +205,14 @@ func (h *SelfAccountHandler) Create(c *gin.Context) {
 	saved, err := h.ent.Account.UpdateOneID(created.ID).
 		SetOwnerUserID(uid).
 		SetIsPublic(isPublic).
-		Save(c.Request.Context())
+		Save(ctx)
 	if err != nil {
+		// 补偿：删掉刚建成、owner 尚未落库的账号，避免无主孤儿。
+		_ = h.ent.Account.DeleteOneID(created.ID).Exec(ctx)
 		response.ErrorFrom(c, err)
 		return
 	}
-	response.Created(c, mapAccount(saved, uid))
+	response.Created(c, mapOwnerAccount(saved))
 }
 
 // updateSelfAccountRequest 自助更新账号（仅有限字段）。
@@ -183,8 +223,9 @@ type updateSelfAccountRequest struct {
 }
 
 // Update 更新自己的账号（名称/备注/可见性）。PATCH /self/accounts/:id
+// owner 条件原子更新：WHERE id AND owner_user_id。命中 0 行 → 404（含非 owner/已删）。
 func (h *SelfAccountHandler) Update(c *gin.Context) {
-	uid, a, ok := h.loadOwned(c)
+	uid, id, ok := subjectAndID(c)
 	if !ok {
 		return
 	}
@@ -193,7 +234,9 @@ func (h *SelfAccountHandler) Update(c *gin.Context) {
 		response.BadRequest(c, "Invalid request: "+err.Error())
 		return
 	}
-	upd := h.ent.Account.UpdateOneID(a.ID)
+	ctx := c.Request.Context()
+
+	upd := h.ent.Account.Update().Where(account.IDEQ(id), account.OwnerUserIDEQ(uid))
 	if req.Name != nil {
 		name := strings.TrimSpace(*req.Name)
 		if name == "" {
@@ -208,50 +251,71 @@ func (h *SelfAccountHandler) Update(c *gin.Context) {
 	if req.IsPublic != nil {
 		upd.SetIsPublic(*req.IsPublic)
 	}
-	saved, err := upd.Save(c.Request.Context())
+	n, err := upd.Save(ctx)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}
-	response.Success(c, mapAccount(saved, uid))
+	if n == 0 {
+		response.NotFound(c, "Account not found")
+		return
+	}
+	a, err := h.ent.Account.Get(ctx, id)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, mapOwnerAccount(a))
 }
 
 // Delete 删除自己的账号。DELETE /self/accounts/:id
-// 复用 adminService.DeleteAccount（软删除 + 清理），但先做 owner 校验。
+// 不走 admin 级联删除（那会连带删 admin 的 spark shadow）：
+//   - 若账号仍挂有子账号(shadow)，拒绝并提示联系管理员；
+//   - 否则按 owner 条件软删（ent 软删钩子转 UPDATE，不触发级联）。
 func (h *SelfAccountHandler) Delete(c *gin.Context) {
-	_, a, ok := h.loadOwned(c)
+	uid, id, ok := subjectAndID(c)
 	if !ok {
 		return
 	}
-	if err := h.adminService.DeleteAccount(c.Request.Context(), a.ID); err != nil {
+	ctx := c.Request.Context()
+
+	hasChildren, err := h.ent.Account.Query().
+		Where(account.IDEQ(id), account.OwnerUserIDEQ(uid)).
+		QueryChildren().Exist(ctx)
+	if err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}
-	response.Success(c, gin.H{"id": a.ID})
+	if hasChildren {
+		response.Forbidden(c, "Account has linked resources; contact an administrator to delete it")
+		return
+	}
+
+	n, err := h.ent.Account.Delete().
+		Where(account.IDEQ(id), account.OwnerUserIDEQ(uid)).
+		Exec(ctx)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	if n == 0 {
+		response.NotFound(c, "Account not found")
+		return
+	}
+	response.Success(c, gin.H{"id": id})
 }
 
-// loadOwned 解析 :id，加载账号并校验归属于当前用户；否则写好错误响应并返回 ok=false。
-// 非 owner（含 admin/系统账号、别人的账号）一律 404，不泄漏存在性。
-func (h *SelfAccountHandler) loadOwned(c *gin.Context) (uid int64, a *ent.Account, ok bool) {
+// subjectAndID 取当前用户 id 与路径 :id；失败时已写好错误响应。
+func subjectAndID(c *gin.Context) (uid int64, id int64, ok bool) {
 	subject, authed := middleware2.GetAuthSubjectFromContext(c)
 	if !authed {
 		response.Unauthorized(c, "User not authenticated")
-		return 0, nil, false
+		return 0, 0, false
 	}
-	uid = subject.UserID
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil || id <= 0 {
 		response.BadRequest(c, "Invalid account ID")
-		return 0, nil, false
+		return 0, 0, false
 	}
-	a, err = h.ent.Account.Get(c.Request.Context(), id)
-	if err != nil {
-		response.NotFound(c, "Account not found")
-		return 0, nil, false
-	}
-	if a.OwnerUserID == nil || *a.OwnerUserID != uid {
-		response.NotFound(c, "Account not found")
-		return 0, nil, false
-	}
-	return uid, a, true
+	return subject.UserID, id, true
 }

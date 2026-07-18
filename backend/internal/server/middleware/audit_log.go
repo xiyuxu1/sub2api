@@ -146,6 +146,9 @@ var auditActionOverrides = map[string]string{
 // auditBodyOmittedRoutes 请求体几乎整体由凭证构成的路由（如整块粘贴 auth JSON 的导入接口）。
 // 这类 body 的凭证内嵌在普通字符串值里，键级脱敏无法覆盖，整体不入库。
 var auditBodyOmittedRoutes = map[string]struct{}{
+	// fork: /self 自助建/改账号的 body 含任意 credentials map，键级脱敏覆盖不到，整体不入库。
+	"POST /api/v1/self/accounts":                              {},
+	"PATCH /api/v1/self/accounts/:id":                         {},
 	"POST /api/v1/admin/accounts/import/codex-session":        {},
 	"PUT /api/v1/admin/prompt-audit/config":                   {},
 	"POST /api/v1/admin/prompt-audit/endpoints/probe":         {},
