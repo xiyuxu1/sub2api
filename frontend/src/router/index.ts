@@ -206,6 +206,19 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    // fork: 普通用户自助管理自己的账号（复用 admin 账号接口，后端已按 owner 收口）
+    path: '/my-accounts',
+    name: 'MyAccounts',
+    component: () => import('@/views/user/MyAccountsView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'My Accounts',
+      titleKey: 'myAccounts.title',
+      descriptionKey: 'myAccounts.description'
+    }
+  },
+  {
     path: '/batch-image',
     name: 'BatchImageGuide',
     alias: '/docs/batch-image',

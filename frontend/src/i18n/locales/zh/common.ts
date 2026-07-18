@@ -1,4 +1,18 @@
 export default {
+  myAccounts: {
+    title: '我的账号',
+    description: '导入并管理你自己的上游账号。',
+    import: '导入账号',
+    reviewNotice: '新导入的账号默认不参与调度，需管理员审核后加入共享池才会生效。',
+    name: '名称',
+    platform: '平台',
+    type: '类型',
+    status: '状态',
+    actions: '操作',
+    empty: '还没有账号。点击"导入账号"添加。',
+    test: '测试',
+    confirmDelete: '确定删除账号"{name}"？'
+  },
   common: {
     loading: '加载中...',
     submitting: '提交中...',
@@ -150,6 +164,7 @@ export default {
     dashboard: '仪表盘',
     announcements: '公告',
     apiKeys: 'API 密钥',
+    myAccounts: '我的账号',
     batchImage: '批量生图',
     usage: '使用记录',
     redeem: '兑换',

@@ -1,4 +1,18 @@
 export default {
+  myAccounts: {
+    title: 'My Accounts',
+    description: 'Import and manage your own upstream accounts.',
+    import: 'Import account',
+    reviewNotice: 'Newly imported accounts are inactive until an administrator adds them to a shared pool.',
+    name: 'Name',
+    platform: 'Platform',
+    type: 'Type',
+    status: 'Status',
+    actions: 'Actions',
+    empty: 'No accounts yet. Click "Import account" to add one.',
+    test: 'Test',
+    confirmDelete: 'Delete account "{name}"?'
+  },
   common: {
     loading: 'Loading...',
     submitting: 'Submitting...',
@@ -150,6 +164,7 @@ export default {
     dashboard: 'Dashboard',
     announcements: 'Announcements',
     apiKeys: 'API Keys',
+    myAccounts: 'My Accounts',
     batchImage: 'Batch Images',
     usage: 'Usage',
     redeem: 'Redeem',
