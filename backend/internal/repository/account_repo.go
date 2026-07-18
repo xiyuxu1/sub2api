@@ -25,6 +25,7 @@ import (
 	dbgroup "github.com/Wei-Shaw/sub2api/ent/group"
 	dbpredicate "github.com/Wei-Shaw/sub2api/ent/predicate"
 	dbproxy "github.com/Wei-Shaw/sub2api/ent/proxy"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/authctx"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -155,6 +156,12 @@ func createAccountRecord(ctx context.Context, client *dbent.Client, account *ser
 		builder.SetParentAccountID(*account.ParentAccountID)
 	}
 
+	// fork: 普通用户自助建号自动归属其名下（is_public 走 DB 默认 true）。
+	// 管理员或后台上下文无 actor，owner 保持 NULL（= 系统/管理员）。
+	if uid, ok := authctx.NonAdminOwner(ctx); ok {
+		builder.SetOwnerUserID(uid)
+	}
+
 	created, err := builder.Save(ctx)
 	if err != nil {
 		return translatePersistenceError(err, service.ErrAccountNotFound, nil)
@@ -220,7 +227,13 @@ func (r *accountRepository) CreateWithAccountGroups(ctx context.Context, account
 }
 
 func (r *accountRepository) GetByID(ctx context.Context, id int64) (*service.Account, error) {
-	m, err := r.client.Account.Query().Where(dbaccount.IDEQ(id)).Only(ctx)
+	q := r.client.Account.Query().Where(dbaccount.IDEQ(id))
+	// fork: 普通用户按 id 取账号只能取自己的（不含别人公开的）。所有走 GetByID 的 by-id
+	// 操作（编辑/测试/刷新/apply-oauth/stats 等）因此自动 owner 化，非 owner → NotFound。
+	if uid, ok := authctx.NonAdminOwner(ctx); ok {
+		q = q.Where(dbaccount.OwnerUserIDEQ(uid))
+	}
+	m, err := q.Only(ctx)
 	if err != nil {
 		return nil, translatePersistenceError(err, service.ErrAccountNotFound, nil)
 	}
@@ -395,7 +408,28 @@ func (r *accountRepository) ListCRSAccountIDs(ctx context.Context) (map[string]i
 	return result, nil
 }
 
+// ensureOwnedIfNonAdmin 对普通用户校验目标账号归属于本人；admin/后台上下文不受限。
+// 非本人 → ErrAccountNotFound（不泄漏存在性）。fork。
+func (r *accountRepository) ensureOwnedIfNonAdmin(ctx context.Context, id int64) error {
+	uid, ok := authctx.NonAdminOwner(ctx)
+	if !ok {
+		return nil
+	}
+	owned, err := r.client.Account.Query().
+		Where(dbaccount.IDEQ(id), dbaccount.OwnerUserIDEQ(uid)).Exist(ctx)
+	if err != nil {
+		return err
+	}
+	if !owned {
+		return service.ErrAccountNotFound
+	}
+	return nil
+}
+
 func (r *accountRepository) Update(ctx context.Context, account *service.Account) error {
+	if err := r.ensureOwnedIfNonAdmin(ctx, account.ID); err != nil {
+		return err
+	}
 	return r.updateAccount(ctx, account, nil)
 }
 
@@ -676,6 +710,9 @@ func (r *accountRepository) UpdateCredentials(ctx context.Context, id int64, cre
 }
 
 func (r *accountRepository) Delete(ctx context.Context, id int64) error {
+	if err := r.ensureOwnedIfNonAdmin(ctx, id); err != nil {
+		return err
+	}
 	groupIDs, err := r.loadAccountGroupIDs(ctx, id)
 	if err != nil {
 		return err
@@ -819,6 +856,10 @@ func (r *accountRepository) accountListFilteredQuery(platform, accountType, stat
 
 func (r *accountRepository) ListWithFilters(ctx context.Context, params pagination.PaginationParams, platform, accountType, status, search string, groupID int64, privacyMode string) ([]service.Account, *pagination.PaginationResult, error) {
 	q := r.accountListFilteredQuery(platform, accountType, status, search, groupID, privacyMode)
+	// fork: 普通用户的列表只见自己的 + 别人公开的。
+	if uid, ok := authctx.NonAdminOwner(ctx); ok {
+		q = q.Where(dbaccount.Or(dbaccount.OwnerUserIDEQ(uid), dbaccount.IsPublicEQ(true)))
+	}
 	// Clone before Count so interceptor-appended predicates (SoftDeleteMixin's
 	// deleted_at IS NULL) don't accumulate on the shared builder and pollute the
 	// subsequent list query. Same pattern used in group_repo/promo_code_repo/user_repo

@@ -13,11 +13,20 @@ import (
 func RegisterAdminRoutes(
 	v1 *gin.RouterGroup,
 	h *handler.Handlers,
+	jwtAuth middleware.JWTAuthMiddleware,
 	adminAuth middleware.AdminAuthMiddleware,
 	auditLog middleware.AuditLogMiddleware,
 	stepUpAuth middleware.StepUpAuthMiddleware,
 	settingService *service.SettingService,
 ) {
+	// fork: 账号子树单独用 jwtAuth + AccountAccessMiddleware 门卫（路径仍 /admin/accounts），
+	// 让普通用户也能自助管理自己的账号；admin 不受限。owner 收口在 account repository。
+	accountsGroup := v1.Group("/admin/accounts")
+	accountsGroup.Use(gin.HandlerFunc(jwtAuth))
+	accountsGroup.Use(gin.HandlerFunc(auditLog))
+	accountsGroup.Use(middleware.AccountAccessMiddleware())
+	registerAccountRoutes(accountsGroup, h, stepUpAuth)
+
 	admin := v1.Group("/admin")
 	admin.Use(gin.HandlerFunc(adminAuth))
 	// 审计中间件挂在认证之后：所有管理面变更类操作 + 敏感读取入审计日志
@@ -36,8 +45,7 @@ func RegisterAdminRoutes(
 		// 分组管理
 		registerGroupRoutes(admin, h)
 
-		// 账号管理
-		registerAccountRoutes(admin, h, stepUpAuth)
+		// 账号管理：已上移为独立的 jwtAuth 组（见 RegisterAdminRoutes 顶部），此处不再注册。
 
 		// 公告管理
 		registerAnnouncementRoutes(admin, h)
@@ -329,8 +337,11 @@ func registerGroupRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	}
 }
 
-func registerAccountRoutes(admin *gin.RouterGroup, h *handler.Handlers, stepUpAuth middleware.StepUpAuthMiddleware) {
-	accounts := admin.Group("/accounts")
+// registerAccountRoutes 在传入的 accounts 组上注册账号端点。
+// fork: 该组不再挂在 adminAuth 的 /admin 组下，而是由 RegisterAdminRoutes 用
+// jwtAuth + AccountAccessMiddleware 单独构建（路径仍为 /admin/accounts），
+// 使普通用户也能自助管理【自己的】账号，owner 收口在 account repository 完成。
+func registerAccountRoutes(accounts *gin.RouterGroup, h *handler.Handlers, stepUpAuth middleware.StepUpAuthMiddleware) {
 	{
 		accounts.GET("", h.Admin.Account.List)
 		accounts.GET("/upstream-billing-probe/settings", h.Admin.Account.GetUpstreamBillingProbeSettings)
