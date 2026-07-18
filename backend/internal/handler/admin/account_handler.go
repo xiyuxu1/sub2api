@@ -20,6 +20,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/handler/dto"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/antigravity"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/authctx"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/claude"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/geminicli"
@@ -497,6 +498,10 @@ func (h *AccountHandler) List(c *gin.Context) {
 	lite := parseBoolQueryWithDefault(c.Query("lite"), false)
 	// 调度分需要跨候选池批量打分并读取负载，默认列表不计算；只有前端列可见时才显式开启。
 	includeSchedulerScore := parseBoolQueryWithDefault(c.Query("include_scheduler_score"), false)
+	// fork: 调度分数走未按 owner 收口的全局账号池查询，会形成侧信道（外审 P1）——普通用户禁用。
+	if _, nonAdmin := authctx.NonAdminOwner(c.Request.Context()); nonAdmin {
+		includeSchedulerScore = false
+	}
 
 	var groupID int64
 	if groupIDStr := c.Query("group"); groupIDStr != "" {

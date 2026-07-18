@@ -20,9 +20,9 @@ var accountOwnerSafeRoutes = map[string]struct{}{
 	"GET /api/v1/admin/accounts/:id":                      {},
 	"PUT /api/v1/admin/accounts/:id":                      {},
 	"DELETE /api/v1/admin/accounts/:id":                   {},
-	"POST /api/v1/admin/accounts/:id/duplicate":           {},
-	"POST /api/v1/admin/accounts/check-mixed-channel":     {},
 	"POST /api/v1/admin/accounts/import/codex-session":    {},
+	// 注意：duplicate（复制会连带 source 的分组/代理绑定）与 check-mixed-channel
+	// （按任意 group_ids 读组内账号，跨用户侧信道）不放行给普通用户（外审 P0/P1）。
 	"POST /api/v1/admin/accounts/:id/test":                {},
 	"POST /api/v1/admin/accounts/:id/refresh":             {},
 	"POST /api/v1/admin/accounts/:id/apply-oauth-credentials": {},
