@@ -3,7 +3,9 @@
 > 这是相对上游 `Wei-Shaw/sub2api` 的**下游自定义改动**说明。新会话/新 AI 接手时先读本文件。
 > 目录 `fork-docs/` 是本 fork 新增的、上游没有的目录，不会和上游冲突。
 >
-> **新会话接手顺序**：先读 §8（当前进度 + 待办；is_public 开关代码已就绪、待部署）→ §5（git 身份/合并上游）→ §7（构建镜像 + 部署流程，踩过大坑）→ 需要背景再看 §1-§3。
+> **新会话接手顺序**：先读 §8，**重点看 §8.3**（下一步大活：「我的账号」升级为完整自助，内含一个必须先拍板的 P0 安全冲突）→ §5（git 身份/合并上游）→ §7（构建镜像 + 部署流程，踩过大坑）→ 需要背景再看 §1-§3。
+>
+> **当前一句话状态（2026-07-19）**：账号自助 + is_public 公开/私有开关的**后端**已上线国内生产 `0.1.161-xdl2`。但普通用户的「我的账号」页有两个待修：①缺 `<AppLayout>` 没导航；②功能太少（用户要完整自助：换分组/绑代理等）。还多做了个「公开账号」浏览 tab 要删。详见 §8.2 / §8.3。
 
 ## 0. 一句话背景
 个人 + 几个**信任的朋友**拼车共用，把多个 Claude/Codex 订阅号聚合成统一 API。**不收费、不接支付**。生产部署在两台服务器（详见 `/Users/xudelong/mine/sub2api/` 下的运维手册与资产清单）。
@@ -169,16 +171,41 @@ docker compose ps; curl -s localhost:8080/health; docker compose logs --tail=50 
 > - 前端 `MyAccountsView.vue`：每行「公开/私有」pill（乐观翻转，失败回滚）；新增「公开账号」只读 tab（`list(..., {scope:'public'})`）。types + zh/en i18n 已加。
 > - 顺手修了一个**既有**测试编译错误：`internal/server/routes/ops_ingress_reject_routes_test.go` 调 `RegisterAdminRoutes` 少传 `jwtAuth` 参数（早前 fork 给账号子树加 jwtAuth 门卫时漏改此测试；已 stash 验证与本次 is_public 改动无关）。补了 pass-through `jwtAuth` stub。
 > - 验证：**全量 `go build ./...` + `go vet ./...` 干净（无任何编译错误）**；改动包 `go test`（service / handler/admin / handler/dto / server/routes）全过；前端 `vue-tsc --noEmit` 全过；lockfile/pnpm-workspace 未动。
-> - ⚠️ **剩下就差部署**：CI 重建镜像（§7.1）→ 南大镜像站拉（§7.3）→ 切镜像验证（§7.4）。部署后按 §7.5 用普通用户 token 验收：翻转公开→别人 scope=public 能看到只读摘要且不含任何凭据字段；私有→看不到。
+> - 部署：已上线 `0.1.161-xdl2`（国内节点），后端 is_public 写入/浏览链路都在，健康正常。
+>
+> ⚠️ **上线后用户验收反馈（2026-07-19，必须修正——见 §8.3，交接 Codex 重点）**：
+> - 后端 owner 收口的 is_public 写入链路**保留**（每行公开/私有开关这个属性是对的）。
+> - 但**前端「公开账号」浏览 tab 是过度设计，要删**（用户没要"看别人公开的号"这个新页/新 tab）。后端 `scope=public` / `ListPublicAccounts` / `dto.PublicAccount` 是否保留待定：前端删 tab 后它就是无调用的死代码，可留可删（留着无害、删了更干净）。
+> - **「我的账号」页有两个真问题**：①没套 `<AppLayout>`→ 无侧边栏/顶栏，只能靠浏览器返回（上个会话建页时的既有 bug，非本次 is_public 改动引入）；②功能太少（只有导入/编辑/测试/删除），用户要的是**对自己账号的完整所有权**（见 §8.3）。
 
-### 8.3 其余待办（未做）
+### 8.3 【交接 Codex 重点】「我的账号」升级为完整自助 + is_public 收尾
+
+> 用户明确的新方向（2026-07-19）：**保留独立的「我的账号」菜单**，但要把管理员「账号管理」页（`frontend/src/views/admin/AccountsView.vue`，2087 行）的**大部分功能迁过来**，让普通用户对**自己的**账号有完整所有权——包括**换分组、绑代理**、改并发/优先级、配额、编辑凭据等；**只去掉极少数极敏感的管理基础设施操作**。使用体验要对齐管理员页，不要做成现在这个"只能导入"的残页。
+
+#### 🔴 最关键的安全冲突（Codex 动手前必须先解决，别无脑迁功能）
+上个会话把"非 admin 建号**不进分组、不绑代理、不可调度**"作为 **P0 越权修复**写死了（见 §8.1、§3、`admin_account.go` CreateAccount / UpdateAccount 里的 `NonAdminOwner` clamp：`input.GroupIDs=nil; input.ProxyID=nil`）。原因：**分组=共享调度池**。普通用户若能把"指向自己可控上游/代理"的账号绑进某个共享分组，该账号就会被拿去服务**别人**的 API 流量 → 他就能**截获别人的 prompt/响应**。这正是本项目最核心的越权风险。
+- 用户现在要的"换分组/绑代理"**与这条 P0 直接冲突**。这不是纯 UI 迁移，是**安全策略变更**，必须先定风险姿态：
+  - 选项 A（保守）：普通用户只能在**自己拥有的私有资源**之间绑（自己的分组、自己 owner 的代理），**绝不能绑进含别人账号/会服务公共流量的共享分组**。需要给分组/代理也做 owner + 可见性收口（P2/P3 本来就规划了），并在 bind 时校验目标分组/代理的 owner=自己。
+  - 选项 B（信任模型放宽）：既然"都是信任的朋友"，允许绑进共享分组——但要**明确知情**：等于允许成员的账号进入公共调度池、也就接受"成员理论上能被路由到别人流量"的风险。**这个只能由用户拍板**，Codex 不能替他决定。
+- ⛔ **在用户明确选定 A 或 B 之前，不要动 CreateAccount/UpdateAccount 里的 `GroupIDs=nil / ProxyID=nil` clamp。** 直接放开 = 重新捅穿 P0。
+
+#### 迁移清单（在安全姿态定了之后再做）
+- **前端**：优先方案是让「我的账号」直接**复用/内嵌 `AccountsView.vue` 的表格与操作**（而不是现在这个手写的精简 `MyAccountsView.vue`），按角色隐藏 admin-only 控件；或把 `AccountsView` 抽成可配置组件，普通用户模式下关掉危险控件。**务必逐一过 2087 行里的每个操作**，分类：普通用户可用 / admin-only 隐藏。
+  - 建议保留给普通用户：导入(CreateAccountModal)、编辑(EditAccountModal)、测试、删除自己的、换分组*、绑代理*、改并发/优先级/配额、公开/私有开关（is_public）。（*绑分组/代理受上面安全姿态约束。）
+  - 建议 admin-only 隐藏：批量改/批量删(Batch)、重置配额(reset-quota)、调度开关(schedulable)、CRS 同步、上游计费探测设置、models sync 等基础设施操作。
+  - **先修 `<AppLayout>`**：无论走哪个方案，「我的账号」页必须套 `<AppLayout>`（对齐 `DashboardView.vue`/`KeysView.vue`），否则没导航。
+  - 删掉本次多做的「公开账号」浏览 tab（`MyAccountsView.vue` 里 `tab==='public'` 那块 + `switchTab/reloadPublic/publicAccounts` + `accounts.ts` 的 `scope:'public'`）。
+- **后端**：每放开一个操作，都要确认对应端点在 service/repo 层已按 owner 收口（非本人 → 404/403），并覆盖旁路（关联 ID、批量、导入、OAuth）。绑分组/代理放开必须加"目标资源 owner 校验"（选项 A）。参照 §2/§3 的授权规则与"必须覆盖的旁路"清单。
+- **验证**：每次改完按 §7 全流程（CI 构建 → 南大站拉 → 切镜像），并用普通用户 + admin 两种 token 跑越权测试。
+
+### 8.4 其余待办（未做）
 - **OpenAI/Codex、Gemini、Grok 等独立 OAuth 组**对普通用户放开：目前只 Claude OAuth（在账号组内，已放行）+ 手动导入可用。这些平台的 OAuth 在 `routes/admin.go` 里各自 `admin.Group("/openai")` 等，挂 adminAuth；需仿账号组做 jwtAuth 放开（这些 generate-auth-url/exchange-code 无账号归属、无副作用，最终建号仍走 owner 收口的 POST /accounts）。
 - **P2 代理**：同款 owner 收口就地改（代理的 owner_user_id/is_public 列已就绪）。注意代理 admin DTO 会返回密码明文，普通用户视图必须脱敏。
 - **P3 分组**：同款。用户要求分组也做自助+可见性（本项目未启用分组计费/RPM/fallback/模型路由策略，故不锁字段；若将来启用要锁回 admin）。
 - **P4 海外节点** `70.39.194.149`（/opt/sub2api-deploy，直连无 mihomo）：账号这套稳定后同样切镜像部署。
 - 部署后活体验收：本会话没跑通（admin 密码已改、不在 .env；无普通用户密码），靠用户浏览器验收。
 
-### 8.4 关键提醒（避免重复踩坑）
+### 8.5 关键提醒（避免重复踩坑）
 - ⛔ 永远别在生产机 `docker build`（会 OOM 打爆，2026-07 已停机一次）。构建只用 GitHub Actions（§7）。
 - 拉镜像走南大镜像站 `ghcr.nju.edu.cn` + `systemd-run`（§7.3），直连 ghcr.io 龟速、且 docker pull 经 SSH 会被断连带死。
 - 别把本机 pnpm 产物（改动的 pnpm-lock.yaml / 生成的 pnpm-workspace.yaml）提交进去（§7.1）。
