@@ -2,6 +2,8 @@
 
 > 这是相对上游 `Wei-Shaw/sub2api` 的**下游自定义改动**说明。新会话/新 AI 接手时先读本文件。
 > 目录 `fork-docs/` 是本 fork 新增的、上游没有的目录，不会和上游冲突。
+>
+> **新会话接手顺序**：先读 §8（当前进度 + 待办，含正在做的 is_public 开关）→ §5（git 身份/合并上游）→ §7（构建镜像 + 部署流程，踩过大坑）→ 需要背景再看 §1-§3。
 
 ## 0. 一句话背景
 个人 + 几个**信任的朋友**拼车共用，把多个 Claude/Codex 订阅号聚合成统一 API。**不收费、不接支付**。生产部署在两台服务器（详见 `/Users/xudelong/mine/sub2api/` 下的运维手册与资产清单）。
@@ -143,3 +145,37 @@ docker compose ps; curl -s localhost:8080/health; docker compose logs --tail=50 
 - 普通用户按 id 访问/改/删别人的账号 → 404。
 - 普通用户建号 → 自动归属自己、不进任何分组、`schedulable=false`（惰性，等 admin 审核进池）。
 - admin 后台不受影响，能看到全部账号。
+
+## 8. 当前进度 & 待办（新会话从这里接手）
+
+> 更新：2026-07-19。仓库在本机 `/Users/xudelong/mine/sub2api/sub2api`，分支 `xdl/self-service`。
+
+### 8.1 已完成并【已上线国内生产】
+- 分支已合并到上游 **0.1.161** + 账号 owner 收口改动，无降级。
+- **国内节点 `115.159.205.56` 已部署镜像 `ghcr.io/xiyuxu1/sub2api:0.1.161-xdl1`**（部署代码 = 合并提交，tag `v0.1.161-xdl1`）。迁移 `9000_xdl` 已应用，accounts/proxies/groups 三表 owner_user_id + is_public 列都在。健康正常。旧镜像 `weishaw/sub2api:latest` + compose/DB 备份都在，可回滚。
+- **账号自助（就地改 + owner 收口）已生效**：普通用户登录后左侧有「我的账号」页，复用管理员的 CreateAccountModal 导入（Claude OAuth + 手动填 key 可用），只看得到/能改删自己的号；建号自动归属自己、不进分组、schedulable=false（惰性，等 admin 审核进池）；admin 后台不受影响、看全部。经三轮 Codex 安全评审修过越权（P0 惰性建号 / 白名单收窄 / 列表只见自己 / duplicate·check-mixed-channel·scheduler_score 等旁路）。
+
+### 8.2 正在做：is_public「公开/私有」开关（选定 **B 方案** = 我的账号列表每行开关，不动大弹窗）
+> 需求：账号"可选对别人是否可见"。当前只做到"私有"（大家只看自己的）；"公开=让别人看见"还没做。安全前提：现有账号 DTO 脱敏不彻底（header_overrides 里可能藏 x-auth-token、extra 整块会漏），**给别人看的必须用只含安全字段的白名单 DTO**。
+>
+> **B 方案实现清单**：
+> - 后端：
+>   1. 非 admin 建号默认 `is_public=false`（在 `admin_account.go` CreateAccount 的非 admin clamp 里 `account.IsPublic=false`；DB 列默认虽 true，服务端覆盖为 opt-in 公开）。
+>   2. 把 `is_public` 串进更新链路：`UpdateAccountRequest`(handler) + `UpdateAccountInput`(admin_service.go) + repo update `SetIsPublic`。这样列表每行开关调 `PUT /api/v1/admin/accounts/:id {is_public}` 即可（已在 owner 白名单内、走 owner 化 GetByID）。
+>   3. 新增只含安全字段的 public DTO（仅 id/name/platform/type，绝不含 credentials/extra/error/notes）。
+>   4. 在 `account_repo.go ListWithFilters` 里：非 admin 支持 `scope=public` → `IsPublicEQ(true) AND NOT owner=uid`（含 owner IS NULL 的公开系统号，注意 SQL NULL 语义要显式 Or(OwnerUserIDIsNil, NEQ)）；List handler 对"非自己的公开号"用上面的白名单 DTO 渲染。当前 ListWithFilters 非 admin 是"只 OwnerUserIDEQ(uid)"，要改成按 scope 区分。
+> - 前端 `frontend/src/views/user/MyAccountsView.vue`：每行加"公开/私有"开关（调 update）；可选加个「公开账号」tab（scope=public）看别人公开的（只读、白名单摘要）。
+> - 改完：CI 重建镜像（§7.1）→ 南大镜像站拉（§7.3）→ 切镜像验证（§7.4）。
+
+### 8.3 其余待办（未做）
+- **OpenAI/Codex、Gemini、Grok 等独立 OAuth 组**对普通用户放开：目前只 Claude OAuth（在账号组内，已放行）+ 手动导入可用。这些平台的 OAuth 在 `routes/admin.go` 里各自 `admin.Group("/openai")` 等，挂 adminAuth；需仿账号组做 jwtAuth 放开（这些 generate-auth-url/exchange-code 无账号归属、无副作用，最终建号仍走 owner 收口的 POST /accounts）。
+- **P2 代理**：同款 owner 收口就地改（代理的 owner_user_id/is_public 列已就绪）。注意代理 admin DTO 会返回密码明文，普通用户视图必须脱敏。
+- **P3 分组**：同款。用户要求分组也做自助+可见性（本项目未启用分组计费/RPM/fallback/模型路由策略，故不锁字段；若将来启用要锁回 admin）。
+- **P4 海外节点** `70.39.194.149`（/opt/sub2api-deploy，直连无 mihomo）：账号这套稳定后同样切镜像部署。
+- 部署后活体验收：本会话没跑通（admin 密码已改、不在 .env；无普通用户密码），靠用户浏览器验收。
+
+### 8.4 关键提醒（避免重复踩坑）
+- ⛔ 永远别在生产机 `docker build`（会 OOM 打爆，2026-07 已停机一次）。构建只用 GitHub Actions（§7）。
+- 拉镜像走南大镜像站 `ghcr.nju.edu.cn` + `systemd-run`（§7.3），直连 ghcr.io 龟速、且 docker pull 经 SSH 会被断连带死。
+- 别把本机 pnpm 产物（改动的 pnpm-lock.yaml / 生成的 pnpm-workspace.yaml）提交进去（§7.1）。
+- git 走 origin HTTPS（gh 活跃账号 xiyuxu1）；合并上游按 §5。
