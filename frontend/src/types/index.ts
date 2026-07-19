@@ -954,6 +954,7 @@ export interface Account {
 
   // Rate limit & scheduling fields
   schedulable: boolean
+  is_public: boolean // fork: 管理可见性开关（其他普通用户能否在"公开账号"里看到只读摘要）
   rate_limited_at: string | null
   rate_limit_reset_at: string | null
   overload_until: string | null
@@ -1222,6 +1223,7 @@ export interface UpdateAccountRequest {
   priority?: number
   rate_multiplier?: number // Account billing multiplier (>=0, 0 means free)
   schedulable?: boolean
+  is_public?: boolean // fork: 管理可见性开关
   status?: 'active' | 'inactive' | 'error'
   group_ids?: number[]
   expires_at?: number | null

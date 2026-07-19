@@ -11,7 +11,16 @@ export default {
     actions: 'Actions',
     empty: 'No accounts yet. Click "Import account" to add one.',
     test: 'Test',
-    confirmDelete: 'Delete account "{name}"?'
+    confirmDelete: 'Delete account "{name}"?',
+    visibility: 'Visibility',
+    public: 'Public',
+    private: 'Private',
+    publicHint: 'When public, other members can see this account\'s name/platform/type in "Public accounts" (read-only, no credentials).',
+    visibilityUpdated: 'Visibility updated',
+    tabMine: 'My accounts',
+    tabPublic: 'Public accounts',
+    publicTabDesc: 'Accounts other members made public. Read-only; shows name/platform/type only.',
+    publicEmpty: 'No public accounts from other members yet.'
   },
   common: {
     loading: 'Loading...',

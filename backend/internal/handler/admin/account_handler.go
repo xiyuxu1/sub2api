@@ -143,6 +143,7 @@ type UpdateAccountRequest struct {
 	GroupIDs                *[]int64       `json:"group_ids"`
 	ExpiresAt               *int64         `json:"expires_at"`
 	AutoPauseOnExpired      *bool          `json:"auto_pause_on_expired"`
+	IsPublic                *bool          `json:"is_public"` // fork: 管理可见性开关（我的账号里翻转）
 	ConfirmMixedChannelRisk *bool          `json:"confirm_mixed_channel_risk"` // 用户确认混合渠道风险
 }
 
@@ -503,6 +504,12 @@ func (h *AccountHandler) List(c *gin.Context) {
 	// fork: 调度分数走未按 owner 收口的全局账号池查询，会形成侧信道（外审 P1）——普通用户禁用。
 	if _, nonAdmin := authctx.NonAdminOwner(c.Request.Context()); nonAdmin {
 		includeSchedulerScore = false
+		// fork: scope=public → 只读浏览别人公开的账号，走严格白名单 DTO，跳过所有
+		// 运行态富化（并发/调度分/窗口费用等，均为 owner/admin 侧信道）。见 §8.2。
+		if strings.TrimSpace(c.Query("scope")) == "public" {
+			h.listPublicAccounts(c, page, pageSize, platform, search)
+			return
+		}
 	}
 
 	var groupID int64
@@ -674,6 +681,22 @@ func (h *AccountHandler) List(c *gin.Context) {
 	}
 
 	response.Paginated(c, result, total, page, pageSize)
+}
+
+// listPublicAccounts 服务非 admin 的"公开账号"只读浏览（fork）。
+// 只返回别人 is_public=true 的账号，且经严格白名单 DTO 渲染（仅 id/name/platform/type），
+// 不做任何运行态富化。见 fork-docs/README.md §8.2。
+func (h *AccountHandler) listPublicAccounts(c *gin.Context, page, pageSize int, platform, search string) {
+	accounts, total, err := h.adminService.ListPublicAccounts(c.Request.Context(), page, pageSize, platform, search)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	items := make([]*dto.PublicAccount, 0, len(accounts))
+	for i := range accounts {
+		items = append(items, dto.PublicAccountFromService(&accounts[i]))
+	}
+	response.Paginated(c, items, total, page, pageSize)
 }
 
 func buildAccountsListETag(
@@ -963,6 +986,7 @@ func (h *AccountHandler) Update(c *gin.Context) {
 		GroupIDs:              req.GroupIDs,
 		ExpiresAt:             req.ExpiresAt,
 		AutoPauseOnExpired:    req.AutoPauseOnExpired,
+		IsPublic:              req.IsPublic,
 		SkipMixedChannelCheck: skipCheck,
 	})
 	if err != nil {

@@ -87,6 +87,9 @@ func (m *sessionWindowMockRepo) List(context.Context, pagination.PaginationParam
 func (m *sessionWindowMockRepo) ListWithFilters(context.Context, pagination.PaginationParams, string, string, string, string, int64, string) ([]Account, *pagination.PaginationResult, error) {
 	panic("unexpected")
 }
+func (m *sessionWindowMockRepo) ListPublicAccounts(context.Context, pagination.PaginationParams, string, string) ([]Account, *pagination.PaginationResult, error) {
+	panic("unexpected")
+}
 func (m *sessionWindowMockRepo) ListAllWithFilters(context.Context, string, string, string, string, int64, string) ([]Account, error) {
 	panic("unexpected")
 }

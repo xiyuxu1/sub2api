@@ -30,6 +30,15 @@ func (s *adminServiceImpl) ListAccounts(ctx context.Context, page, pageSize int,
 	return accounts, result.Total, nil
 }
 
+func (s *adminServiceImpl) ListPublicAccounts(ctx context.Context, page, pageSize int, platform, search string) ([]Account, int64, error) {
+	params := pagination.PaginationParams{Page: page, PageSize: pageSize}
+	accounts, result, err := s.accountRepo.ListPublicAccounts(ctx, params, platform, search)
+	if err != nil {
+		return nil, 0, err
+	}
+	return accounts, result.Total, nil
+}
+
 func (s *adminServiceImpl) ListAccountsForSchedulerScoreFilter(ctx context.Context, platform, accountType, status, search string, groupID int64, privacyMode string) ([]Account, error) {
 	if s == nil || s.accountRepo == nil {
 		return nil, nil
@@ -788,6 +797,11 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 	}
 	if input.AutoPauseOnExpired != nil {
 		account.AutoPauseOnExpired = *input.AutoPauseOnExpired
+	}
+	// fork: 管理可见性开关。owner 收口已由上面的 GetByID 保证（非本人 → 404），
+	// 非 admin 只能翻转自己账号的可见性。见 fork-docs/README.md §8.2。
+	if input.IsPublic != nil {
+		account.IsPublic = *input.IsPublic
 	}
 
 	// 先验证分组是否存在（在任何写操作之前）

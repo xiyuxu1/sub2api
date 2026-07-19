@@ -59,6 +59,10 @@ type Account struct {
 	ParentAccountID *int64 // non-nil → 影子账号（不持凭据，透传母账号凭据）
 	QuotaDimension  string // 用量维度："" / "global" / "spark"
 
+	// fork: 管理可见性。true = 其他普通用户可在"公开账号"里看到（只读白名单摘要）。
+	// 非 admin 建号默认 false（opt-in）；owner 可自助在"我的账号"里翻转。见 fork-docs/README.md §8.2。
+	IsPublic bool
+
 	Proxy         *Proxy
 	AccountGroups []AccountGroup
 	GroupIDs      []int64

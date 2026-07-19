@@ -12,6 +12,7 @@
         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ t('myAccounts.description') }}</p>
       </div>
       <button
+        v-if="tab === 'mine'"
         class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
         @click="showCreate = true"
       >
@@ -19,11 +20,31 @@
       </button>
     </div>
 
-    <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300">
+    <!-- tab 切换：我的账号 / 公开账号（别人公开的，只读） -->
+    <div class="mb-4 flex gap-2 border-b border-gray-200 dark:border-gray-700">
+      <button
+        type="button"
+        class="-mb-px border-b-2 px-3 py-2 text-sm font-medium"
+        :class="tab === 'mine' ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'"
+        @click="switchTab('mine')"
+      >
+        {{ t('myAccounts.tabMine') }}
+      </button>
+      <button
+        type="button"
+        class="-mb-px border-b-2 px-3 py-2 text-sm font-medium"
+        :class="tab === 'public' ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'"
+        @click="switchTab('public')"
+      >
+        {{ t('myAccounts.tabPublic') }}
+      </button>
+    </div>
+
+    <div v-if="tab === 'mine'" class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300">
       {{ t('myAccounts.reviewNotice') }}
     </div>
 
-    <div class="mt-4 overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+    <div v-if="tab === 'mine'" class="mt-4 overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
       <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
         <thead class="bg-gray-50 dark:bg-gray-900/40">
           <tr>
@@ -31,15 +52,16 @@
             <th class="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">{{ t('myAccounts.platform') }}</th>
             <th class="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">{{ t('myAccounts.type') }}</th>
             <th class="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">{{ t('myAccounts.status') }}</th>
+            <th class="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">{{ t('myAccounts.visibility') }}</th>
             <th class="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">{{ t('myAccounts.actions') }}</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
           <tr v-if="loading">
-            <td colspan="5" class="px-4 py-8 text-center text-sm text-gray-400">{{ t('common.loading') }}</td>
+            <td colspan="6" class="px-4 py-8 text-center text-sm text-gray-400">{{ t('common.loading') }}</td>
           </tr>
           <tr v-else-if="accounts.length === 0">
-            <td colspan="5" class="px-4 py-8 text-center text-sm text-gray-400">{{ t('myAccounts.empty') }}</td>
+            <td colspan="6" class="px-4 py-8 text-center text-sm text-gray-400">{{ t('myAccounts.empty') }}</td>
           </tr>
           <tr v-for="acc in accounts" :key="acc.id" class="hover:bg-gray-50 dark:hover:bg-gray-700/40">
             <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">{{ acc.name }}</td>
@@ -50,6 +72,20 @@
                 {{ acc.status }}
               </span>
             </td>
+            <td class="px-4 py-3 text-sm">
+              <button
+                type="button"
+                :title="t('myAccounts.publicHint')"
+                :disabled="togglingId === acc.id"
+                class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium transition disabled:opacity-50"
+                :class="acc.is_public
+                  ? 'bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-300'
+                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300'"
+                @click="togglePublic(acc)"
+              >
+                {{ acc.is_public ? t('myAccounts.public') : t('myAccounts.private') }}
+              </button>
+            </td>
             <td class="px-4 py-3 text-right text-sm">
               <button class="mr-3 text-gray-500 hover:text-primary-600" @click="openEdit(acc)">{{ t('common.edit') }}</button>
               <button class="mr-3 text-gray-500 hover:text-primary-600" @click="openTest(acc)">{{ t('myAccounts.test') }}</button>
@@ -58,6 +94,35 @@
           </tr>
         </tbody>
       </table>
+    </div>
+
+    <!-- 公开账号：别人 is_public=true 的号，只读白名单摘要（后端仅回 id/name/platform/type）。 -->
+    <div v-if="tab === 'public'">
+      <p class="mb-3 text-sm text-gray-500 dark:text-gray-400">{{ t('myAccounts.publicTabDesc') }}</p>
+      <div class="overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+          <thead class="bg-gray-50 dark:bg-gray-900/40">
+            <tr>
+              <th class="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">{{ t('myAccounts.name') }}</th>
+              <th class="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">{{ t('myAccounts.platform') }}</th>
+              <th class="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">{{ t('myAccounts.type') }}</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+            <tr v-if="publicLoading">
+              <td colspan="3" class="px-4 py-8 text-center text-sm text-gray-400">{{ t('common.loading') }}</td>
+            </tr>
+            <tr v-else-if="publicAccounts.length === 0">
+              <td colspan="3" class="px-4 py-8 text-center text-sm text-gray-400">{{ t('myAccounts.publicEmpty') }}</td>
+            </tr>
+            <tr v-for="acc in publicAccounts" :key="acc.id">
+              <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">{{ acc.name }}</td>
+              <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">{{ acc.platform }}</td>
+              <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">{{ acc.type }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
     <!-- 复用管理员的富导入弹窗；普通用户不绑分组/代理，传空数组即可（后端也会强制 clamp）。 -->
@@ -85,6 +150,28 @@ const showEdit = ref(false)
 const showTest = ref(false)
 const editing = ref<Account | null>(null)
 const testing = ref<Account | null>(null)
+const togglingId = ref<number | null>(null)
+
+const tab = ref<'mine' | 'public'>('mine')
+const publicAccounts = ref<Account[]>([])
+const publicLoading = ref(false)
+let publicLoaded = false
+
+function switchTab(next: 'mine' | 'public') {
+  tab.value = next
+  if (next === 'public' && !publicLoaded) reloadPublic()
+}
+
+async function reloadPublic() {
+  publicLoading.value = true
+  try {
+    const res = await adminAPI.accounts.list(1, 200, { scope: 'public' })
+    publicAccounts.value = res.items ?? []
+    publicLoaded = true
+  } finally {
+    publicLoading.value = false
+  }
+}
 
 async function reload() {
   loading.value = true
@@ -93,6 +180,22 @@ async function reload() {
     accounts.value = res.items ?? []
   } finally {
     loading.value = false
+  }
+}
+
+// 翻转"公开/私有"。乐观更新，失败回滚。后端已按 owner 收口，只能改自己的号。
+async function togglePublic(acc: Account) {
+  if (togglingId.value !== null) return
+  const next = !acc.is_public
+  togglingId.value = acc.id
+  acc.is_public = next
+  try {
+    await adminAPI.accounts.update(acc.id, { is_public: next })
+  } catch (e) {
+    acc.is_public = !next // 回滚
+    window.alert(e instanceof Error ? e.message : String(e))
+  } finally {
+    togglingId.value = null
   }
 }
 

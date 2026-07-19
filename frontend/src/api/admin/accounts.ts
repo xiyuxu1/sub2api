@@ -46,6 +46,7 @@ export async function list(
     include_scheduler_score?: string
     sort_by?: string
     sort_order?: 'asc' | 'desc'
+    scope?: 'public' // fork: 非 admin 只读浏览别人公开的账号（后端仅回 id/name/platform/type）
   },
   options?: {
     signal?: AbortSignal

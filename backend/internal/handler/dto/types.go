@@ -171,6 +171,16 @@ type AdminGroup struct {
 	SortOrder int `json:"sort_order"`
 }
 
+// PublicAccount 是跨用户"公开账号"浏览的严格白名单 DTO（fork）。
+// 只含无害标识字段——绝不含 credentials / extra / notes / error_message / proxy 等，
+// 因为完整 Account DTO 的脱敏不彻底（header_overrides / extra 会漏敏感值）。见 fork-docs/README.md §8.2。
+type PublicAccount struct {
+	ID       int64  `json:"id"`
+	Name     string `json:"name"`
+	Platform string `json:"platform"`
+	Type     string `json:"type"`
+}
+
 type Account struct {
 	ID       int64   `json:"id"`
 	Name     string  `json:"name"`
@@ -198,6 +208,9 @@ type Account struct {
 	UpdatedAt               time.Time       `json:"updated_at"`
 
 	Schedulable bool `json:"schedulable"`
+
+	// IsPublic 管理可见性开关（fork）：true = 其他普通用户可在"公开账号"里看到只读摘要。
+	IsPublic bool `json:"is_public"`
 
 	RateLimitedAt    *time.Time `json:"rate_limited_at"`
 	RateLimitResetAt *time.Time `json:"rate_limit_reset_at"`

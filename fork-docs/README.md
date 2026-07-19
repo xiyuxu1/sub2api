@@ -3,7 +3,7 @@
 > 这是相对上游 `Wei-Shaw/sub2api` 的**下游自定义改动**说明。新会话/新 AI 接手时先读本文件。
 > 目录 `fork-docs/` 是本 fork 新增的、上游没有的目录，不会和上游冲突。
 >
-> **新会话接手顺序**：先读 §8（当前进度 + 待办，含正在做的 is_public 开关）→ §5（git 身份/合并上游）→ §7（构建镜像 + 部署流程，踩过大坑）→ 需要背景再看 §1-§3。
+> **新会话接手顺序**：先读 §8（当前进度 + 待办；is_public 开关代码已就绪、待部署）→ §5（git 身份/合并上游）→ §7（构建镜像 + 部署流程，踩过大坑）→ 需要背景再看 §1-§3。
 
 ## 0. 一句话背景
 个人 + 几个**信任的朋友**拼车共用，把多个 Claude/Codex 订阅号聚合成统一 API。**不收费、不接支付**。生产部署在两台服务器（详见 `/Users/xudelong/mine/sub2api/` 下的运维手册与资产清单）。
@@ -155,17 +155,20 @@ docker compose ps; curl -s localhost:8080/health; docker compose logs --tail=50 
 - **国内节点 `115.159.205.56` 已部署镜像 `ghcr.io/xiyuxu1/sub2api:0.1.161-xdl1`**（部署代码 = 合并提交，tag `v0.1.161-xdl1`）。迁移 `9000_xdl` 已应用，accounts/proxies/groups 三表 owner_user_id + is_public 列都在。健康正常。旧镜像 `weishaw/sub2api:latest` + compose/DB 备份都在，可回滚。
 - **账号自助（就地改 + owner 收口）已生效**：普通用户登录后左侧有「我的账号」页，复用管理员的 CreateAccountModal 导入（Claude OAuth + 手动填 key 可用），只看得到/能改删自己的号；建号自动归属自己、不进分组、schedulable=false（惰性，等 admin 审核进池）；admin 后台不受影响、看全部。经三轮 Codex 安全评审修过越权（P0 惰性建号 / 白名单收窄 / 列表只见自己 / duplicate·check-mixed-channel·scheduler_score 等旁路）。
 
-### 8.2 正在做：is_public「公开/私有」开关（选定 **B 方案** = 我的账号列表每行开关，不动大弹窗）
-> 需求：账号"可选对别人是否可见"。当前只做到"私有"（大家只看自己的）；"公开=让别人看见"还没做。安全前提：现有账号 DTO 脱敏不彻底（header_overrides 里可能藏 x-auth-token、extra 整块会漏），**给别人看的必须用只含安全字段的白名单 DTO**。
+### 8.2 已完成（代码就绪，**待重建镜像 + 部署**）：is_public「公开/私有」开关（B 方案）
+> 需求：账号"可选对别人是否可见"。已实现：owner 在「我的账号」每行翻转公开/私有；公开的号别人可在「公开账号」tab 只读浏览（严格白名单摘要）。安全前提兑现：跨用户展示走**只含 id/name/platform/type 的白名单 DTO**，绝不碰 credentials/extra/notes/error。
 >
-> **B 方案实现清单**：
+> **已落地改动**（2026-07-19，均在本机分支，未提交/未部署）：
 > - 后端：
->   1. 非 admin 建号默认 `is_public=false`（在 `admin_account.go` CreateAccount 的非 admin clamp 里 `account.IsPublic=false`；DB 列默认虽 true，服务端覆盖为 opt-in 公开）。
->   2. 把 `is_public` 串进更新链路：`UpdateAccountRequest`(handler) + `UpdateAccountInput`(admin_service.go) + repo update `SetIsPublic`。这样列表每行开关调 `PUT /api/v1/admin/accounts/:id {is_public}` 即可（已在 owner 白名单内、走 owner 化 GetByID）。
->   3. 新增只含安全字段的 public DTO（仅 id/name/platform/type，绝不含 credentials/extra/error/notes）。
->   4. 在 `account_repo.go ListWithFilters` 里：非 admin 支持 `scope=public` → `IsPublicEQ(true) AND NOT owner=uid`（含 owner IS NULL 的公开系统号，注意 SQL NULL 语义要显式 Or(OwnerUserIDIsNil, NEQ)）；List handler 对"非自己的公开号"用上面的白名单 DTO 渲染。当前 ListWithFilters 非 admin 是"只 OwnerUserIDEQ(uid)"，要改成按 scope 区分。
-> - 前端 `frontend/src/views/user/MyAccountsView.vue`：每行加"公开/私有"开关（调 update）；可选加个「公开账号」tab（scope=public）看别人公开的（只读、白名单摘要）。
-> - 改完：CI 重建镜像（§7.1）→ 南大镜像站拉（§7.3）→ 切镜像验证（§7.4）。
+>   1. `service.Account` 加 `IsPublic bool`；ent mapper `accountEntityToService` 回填；`updateLockedAccount` 里 `SetIsPublic`（值由 UpdateAccount 从 owner 化 GetByID 回填/覆盖）。
+>   2. 非 admin 建号默认私有：`account_repo.go createAccountRecord` 非 admin 分支 `SetIsPublic(false)`（opt-in 公开；admin/系统号仍走 DB 默认 true）。
+>   3. 更新链路串通：`UpdateAccountRequest.IsPublic`(handler) → `UpdateAccountInput.IsPublic`(service) → `account.IsPublic`。列表每行开关调 `PUT /admin/accounts/:id {is_public}`，走 owner 收口。
+>   4. 白名单 DTO `dto.PublicAccount`(id/name/platform/type) + `PublicAccountFromService`；单测 `public_account_whitelist_test.go` 断言绝不泄露 credentials/extra/notes/error。
+>   5. 跨用户浏览：`account_repo.go ListPublicAccounts`（`IsPublicEQ(true)` AND `Or(OwnerUserIDIsNil, OwnerUserIDNEQ(uid))` — 显式处理 SQL NULL 三值逻辑，含系统公开号）；service+interface `ListPublicAccounts`；handler `List` 非 admin + `?scope=public` → `listPublicAccounts`（白名单渲染，跳过所有运行态富化侧信道）。
+> - 前端 `MyAccountsView.vue`：每行「公开/私有」pill（乐观翻转，失败回滚）；新增「公开账号」只读 tab（`list(..., {scope:'public'})`）。types + zh/en i18n 已加。
+> - 顺手修了一个**既有**测试编译错误：`internal/server/routes/ops_ingress_reject_routes_test.go` 调 `RegisterAdminRoutes` 少传 `jwtAuth` 参数（早前 fork 给账号子树加 jwtAuth 门卫时漏改此测试；已 stash 验证与本次 is_public 改动无关）。补了 pass-through `jwtAuth` stub。
+> - 验证：**全量 `go build ./...` + `go vet ./...` 干净（无任何编译错误）**；改动包 `go test`（service / handler/admin / handler/dto / server/routes）全过；前端 `vue-tsc --noEmit` 全过；lockfile/pnpm-workspace 未动。
+> - ⚠️ **剩下就差部署**：CI 重建镜像（§7.1）→ 南大镜像站拉（§7.3）→ 切镜像验证（§7.4）。部署后按 §7.5 用普通用户 token 验收：翻转公开→别人 scope=public 能看到只读摘要且不含任何凭据字段；私有→看不到。
 
 ### 8.3 其余待办（未做）
 - **OpenAI/Codex、Gemini、Grok 等独立 OAuth 组**对普通用户放开：目前只 Claude OAuth（在账号组内，已放行）+ 手动导入可用。这些平台的 OAuth 在 `routes/admin.go` 里各自 `admin.Group("/openai")` 等，挂 adminAuth；需仿账号组做 jwtAuth 放开（这些 generate-auth-url/exchange-code 无账号归属、无副作用，最终建号仍走 owner 收口的 POST /accounts）。

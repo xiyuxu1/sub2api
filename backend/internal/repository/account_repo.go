@@ -156,10 +156,12 @@ func createAccountRecord(ctx context.Context, client *dbent.Client, account *ser
 		builder.SetParentAccountID(*account.ParentAccountID)
 	}
 
-	// fork: 普通用户自助建号自动归属其名下（is_public 走 DB 默认 true）。
-	// 管理员或后台上下文无 actor，owner 保持 NULL（= 系统/管理员）。
+	// fork: 普通用户自助建号自动归属其名下，且默认私有（is_public=false，opt-in 公开）。
+	// 现有账号 DTO 脱敏不彻底，公开必须由 owner 显式在"我的账号"里翻转。见 fork-docs/README.md §8.2。
+	// 管理员或后台上下文无 actor，owner 保持 NULL、is_public 走 DB 默认 true。
 	if uid, ok := authctx.NonAdminOwner(ctx); ok {
 		builder.SetOwnerUserID(uid)
+		builder.SetIsPublic(false)
 	}
 
 	created, err := builder.Save(ctx)
@@ -509,6 +511,7 @@ func (r *accountRepository) updateLockedAccount(ctx context.Context, client *dbe
 		SetStatus(account.Status).
 		SetErrorMessage(account.ErrorMessage).
 		SetSchedulable(schedulable).
+		SetIsPublic(account.IsPublic). // fork: owner 翻转的可见性开关（值由 UpdateAccount 从 GetByID 回填/覆盖）
 		SetAutoPauseOnExpired(account.AutoPauseOnExpired)
 
 	if account.RateMultiplier != nil {
@@ -883,6 +886,44 @@ func (r *accountRepository) ListWithFilters(ctx context.Context, params paginati
 		return nil, nil, err
 	}
 
+	outAccounts, err := r.accountsToService(ctx, accounts)
+	if err != nil {
+		return nil, nil, err
+	}
+	return outAccounts, paginationResultFromTotal(int64(total), params), nil
+}
+
+// ListPublicAccounts 返回其他人公开的账号（fork）：is_public=true 且不属于调用者。
+// 调用者身份从 context 取；未按非 admin 收口（无 uid）时退化为"全部公开账号"，
+// 由调用方（handler）保证仅非 admin 走此路径。owner IS NULL 的系统/admin 号视为"非自己"，
+// 显式 Or(IsNil, NEQ) 以避开 SQL 里 NULL != v 恒为 NULL 的三值逻辑（否则系统公开号会漏掉）。
+func (r *accountRepository) ListPublicAccounts(ctx context.Context, params pagination.PaginationParams, platform, search string) ([]service.Account, *pagination.PaginationResult, error) {
+	q := r.client.Account.Query().Where(dbaccount.IsPublicEQ(true))
+	if uid, ok := authctx.NonAdminOwner(ctx); ok {
+		q = q.Where(dbaccount.Or(
+			dbaccount.OwnerUserIDIsNil(),
+			dbaccount.OwnerUserIDNEQ(uid),
+		))
+	}
+	if platform != "" {
+		q = q.Where(dbaccount.PlatformEQ(platform))
+	}
+	if search != "" {
+		q = q.Where(dbaccount.NameContainsFold(search))
+	}
+
+	total, err := q.Clone().Count(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	accounts, err := q.
+		Offset(params.Offset()).
+		Limit(params.Limit()).
+		Order(dbaccount.ByName()).
+		All(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
 	outAccounts, err := r.accountsToService(ctx, accounts)
 	if err != nil {
 		return nil, nil, err
@@ -3173,6 +3214,7 @@ func accountEntityToService(m *dbent.Account) *service.Account {
 		SessionWindowStatus:     derefString(m.SessionWindowStatus),
 		ParentAccountID:         m.ParentAccountID,
 		QuotaDimension:          string(m.QuotaDimension),
+		IsPublic:                m.IsPublic,
 	}
 }
 

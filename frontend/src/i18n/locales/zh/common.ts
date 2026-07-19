@@ -11,7 +11,16 @@ export default {
     actions: '操作',
     empty: '还没有账号。点击"导入账号"添加。',
     test: '测试',
-    confirmDelete: '确定删除账号"{name}"？'
+    confirmDelete: '确定删除账号"{name}"？',
+    visibility: '可见性',
+    public: '公开',
+    private: '私有',
+    publicHint: '公开后，其他成员可在"公开账号"里看到此账号的名称/平台/类型（只读，不含任何凭据）。',
+    visibilityUpdated: '可见性已更新',
+    tabMine: '我的账号',
+    tabPublic: '公开账号',
+    publicTabDesc: '其他成员公开的账号，只读，仅展示名称/平台/类型。',
+    publicEmpty: '还没有其他成员公开的账号。'
   },
   common: {
     loading: '加载中...',

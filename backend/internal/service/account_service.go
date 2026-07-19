@@ -68,6 +68,9 @@ type AccountRepository interface {
 
 	List(ctx context.Context, params pagination.PaginationParams) ([]Account, *pagination.PaginationResult, error)
 	ListWithFilters(ctx context.Context, params pagination.PaginationParams, platform, accountType, status, search string, groupID int64, privacyMode string) ([]Account, *pagination.PaginationResult, error)
+	// ListPublicAccounts 返回其他人公开（is_public）的账号（fork）：调用者身份从 context 取，
+	// 仅返回不属于调用者且 is_public=true 的账号，供"公开账号"只读浏览。见 fork-docs/README.md §8.2。
+	ListPublicAccounts(ctx context.Context, params pagination.PaginationParams, platform, search string) ([]Account, *pagination.PaginationResult, error)
 	// ListAllWithFilters 返回符合过滤条件的全部账号（不分页），用于账号列表页
 	// 计算 OpenAI 调度分数的过滤范围池。
 	ListAllWithFilters(ctx context.Context, platform, accountType, status, search string, groupID int64, privacyMode string) ([]Account, error)

@@ -25,7 +25,9 @@ func TestIngressRejectAdminRoutesRequireAdminAuthentication(t *testing.T) {
 	})
 	auditLog := servermiddleware.AuditLogMiddleware(func(c *gin.Context) { c.Next() })
 	stepUp := servermiddleware.StepUpAuthMiddleware(func(c *gin.Context) { c.Next() })
-	RegisterAdminRoutes(router.Group("/api/v1"), handlers, adminAuth, auditLog, stepUp, nil)
+	// jwtAuth 只作用于 /admin/accounts 子树；本测试打的是 adminAuth 门卫下的 ops 路由，用 pass-through 即可。
+	jwtAuth := servermiddleware.JWTAuthMiddleware(func(c *gin.Context) { c.Next() })
+	RegisterAdminRoutes(router.Group("/api/v1"), handlers, jwtAuth, adminAuth, auditLog, stepUp, nil)
 
 	for _, path := range []string{
 		"/api/v1/admin/ops/ingress-rejections",

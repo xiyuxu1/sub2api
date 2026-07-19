@@ -212,6 +212,19 @@ func groupFromServiceBase(g *service.Group) Group {
 	}
 }
 
+// PublicAccountFromService 映射到跨用户浏览的严格白名单 DTO（fork）。
+func PublicAccountFromService(a *service.Account) *PublicAccount {
+	if a == nil {
+		return nil
+	}
+	return &PublicAccount{
+		ID:       a.ID,
+		Name:     a.Name,
+		Platform: a.Platform,
+		Type:     a.Type,
+	}
+}
+
 func AccountFromServiceShallow(a *service.Account) *Account {
 	if a == nil {
 		return nil
@@ -252,6 +265,7 @@ func AccountFromServiceShallow(a *service.Account) *Account {
 		GroupIDs:                a.GroupIDs,
 		ParentAccountID:         a.ParentAccountID,
 		QuotaDimension:          a.QuotaDimension,
+		IsPublic:                a.IsPublic,
 	}
 
 	// 提取 5h 窗口费用控制和会话数量控制配置（仅 Anthropic OAuth/SetupToken 账号有效）

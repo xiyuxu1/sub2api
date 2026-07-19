@@ -87,6 +87,10 @@ func (s *accountRepoStub) ListWithFilters(ctx context.Context, params pagination
 	panic("unexpected ListWithFilters call")
 }
 
+func (s *accountRepoStub) ListPublicAccounts(ctx context.Context, params pagination.PaginationParams, platform, search string) ([]Account, *pagination.PaginationResult, error) {
+	panic("unexpected ListPublicAccounts call")
+}
+
 func (s *accountRepoStub) ListByGroup(ctx context.Context, groupID int64) ([]Account, error) {
 	panic("unexpected ListByGroup call")
 }
