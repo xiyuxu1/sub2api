@@ -173,10 +173,12 @@ docker compose ps; curl -s localhost:8080/health; docker compose logs --tail=50 
 > - 验证：**全量 `go build ./...` + `go vet ./...` 干净（无任何编译错误）**；改动包 `go test`（service / handler/admin / handler/dto / server/routes）全过；前端 `vue-tsc --noEmit` 全过；lockfile/pnpm-workspace 未动。
 > - 部署：已上线 `0.1.161-xdl2`（国内节点），后端 is_public 写入/浏览链路都在，健康正常。
 >
-> ⚠️ **上线后用户验收反馈（2026-07-19，必须修正——见 §8.3，交接 Codex 重点）**：
+> ⚠️ **上线后用户验收反馈（2026-07-19，代码已改、待部署）**：
 > - 后端 owner 收口的 is_public 写入链路**保留**（每行公开/私有开关这个属性是对的）。
-> - 但**前端「公开账号」浏览 tab 是过度设计，要删**（用户没要"看别人公开的号"这个新页/新 tab）。后端 `scope=public` / `ListPublicAccounts` / `dto.PublicAccount` 是否保留待定：前端删 tab 后它就是无调用的死代码，可留可删（留着无害、删了更干净）。
-> - **「我的账号」页有两个真问题**：①没套 `<AppLayout>`→ 无侧边栏/顶栏，只能靠浏览器返回（上个会话建页时的既有 bug，非本次 is_public 改动引入）；②功能太少（只有导入/编辑/测试/删除），用户要的是**对自己账号的完整所有权**（见 §8.3）。
+> - ✅ **已删前端「公开账号」浏览 tab**（`MyAccountsView.vue` 的 tab 栏 / public 表格 / `switchTab·reloadPublic·publicAccounts` / `accounts.ts` 的 `scope`）+ 相关 i18n（tabMine/tabPublic/publicTabDesc/publicEmpty）。**后端 `scope=public` / `ListPublicAccounts` / `dto.PublicAccount` 故意留着**当无调用死代码（删它要再动 AccountRepository 接口 + 6 个测试 mock，低额度下不值当；无前端调用、无副作用）。若 §8.3 选定"完整自助"后仍不需要跨用户浏览，可一并清掉。
+> - ✅ **已修「我的账号」缺导航**：`MyAccountsView.vue` 现已套 `<AppLayout>`（对齐 Dashboard/Keys），侧边栏/顶栏回来；页面标题走路由 meta，删掉了原来重复的本地 `<h1>`。
+> - ⏳ **仍待办**：功能太少（只有导入/编辑/测试/删除+公开开关），用户要**对自己账号的完整所有权**（换分组/绑代理等）——这是大活 + P0 安全冲突，见 §8.3。
+> - 这两个 ✅ 是**代码改好但还没重新部署**：生产 `0.1.161-xdl2` 上仍是旧的（带多余 tab、无导航）。下次部署（或 Codex 做 §8.3 时一起）按 §7 出新镜像即可。
 
 ### 8.3 【交接 Codex 重点】「我的账号」升级为完整自助 + is_public 收尾
 
