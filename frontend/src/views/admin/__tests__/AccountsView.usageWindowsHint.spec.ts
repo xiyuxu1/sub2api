@@ -7,12 +7,14 @@ const {
   listAccounts,
   listWithEtag,
   getBatchTodayStats,
+  getSelfServiceOptions,
   getAllProxies,
   getAllGroups
 } = vi.hoisted(() => ({
   listAccounts: vi.fn(),
   listWithEtag: vi.fn(),
   getBatchTodayStats: vi.fn(),
+  getSelfServiceOptions: vi.fn(),
   getAllProxies: vi.fn(),
   getAllGroups: vi.fn()
 }))
@@ -23,6 +25,7 @@ vi.mock('@/api/admin', () => ({
       list: listAccounts,
       listWithEtag,
       getBatchTodayStats,
+      getSelfServiceOptions,
       getUpstreamBillingProbeSettings: vi.fn().mockResolvedValue({ enabled: true, interval_minutes: 30 }),
       delete: vi.fn(),
       batchClearError: vi.fn(),
@@ -132,6 +135,7 @@ describe('admin AccountsView usage windows hint', () => {
     listAccounts.mockReset()
     listWithEtag.mockReset()
     getBatchTodayStats.mockReset()
+    getSelfServiceOptions.mockReset()
     getAllProxies.mockReset()
     getAllGroups.mockReset()
 
@@ -148,6 +152,10 @@ describe('admin AccountsView usage windows hint', () => {
       data: null
     })
     getBatchTodayStats.mockResolvedValue({ stats: {} })
+    getSelfServiceOptions.mockResolvedValue({
+      proxies: [{ id: 7, name: 'shared-proxy' }],
+      groups: [{ id: 9, name: 'shared-group' }]
+    })
     getAllProxies.mockResolvedValue([])
     getAllGroups.mockResolvedValue([])
   })
@@ -178,5 +186,59 @@ describe('admin AccountsView usage windows hint', () => {
     )).toBe(true)
     const columns = wrapper.getComponent(DataTableStub).props('columns') as Array<{ key: string; sortable: boolean }>
     expect(columns.find(column => column.key === 'upstream_billing_rate')?.sortable).toBe(true)
+  })
+
+  it('uses the complete account table in self-service mode without admin-only columns', async () => {
+    const wrapper = mount(AccountsView, {
+      props: { selfService: true },
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          TablePageLayout: {
+            template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>'
+          },
+          DataTable: DataTableStub,
+          HelpTooltip: HelpTooltipStub,
+          Pagination: true,
+          ConfirmDialog: true,
+          AccountTableActions: { template: '<div><slot name="beforeCreate" /><slot name="after" /></div>' },
+          AccountTableFilters: true,
+          AccountBulkActionsBar: true,
+          AccountActionMenu: true,
+          ImportDataModal: true,
+          ReAuthAccountModal: true,
+          AccountTestModal: true,
+          AccountStatsModal: true,
+          ScheduledTestsPanel: true,
+          SyncFromCrsModal: true,
+          TempUnschedStatusModal: true,
+          ErrorPassthroughRulesModal: true,
+          TLSFingerprintProfilesModal: true,
+          CreateAccountModal: true,
+          EditAccountModal: true,
+          BulkEditAccountModal: true,
+          PlatformTypeBadge: true,
+          AccountCapacityCell: true,
+          AccountStatusIndicator: true,
+          AccountTodayStatsCell: true,
+          AccountGroupsCell: true,
+          AccountUsageCell: true,
+          Icon: true
+        }
+      }
+    })
+    await flushPromises()
+
+    expect(getSelfServiceOptions).toHaveBeenCalledOnce()
+    expect(getAllProxies).not.toHaveBeenCalled()
+    expect(getAllGroups).not.toHaveBeenCalled()
+
+    const columns = wrapper.getComponent(DataTableStub).props('columns') as Array<{ key: string }>
+    expect(columns.map(column => column.key)).toEqual(expect.arrayContaining([
+      'visibility', 'today_stats', 'usage', 'proxy', 'priority', 'groups'
+    ]))
+    expect(columns.map(column => column.key)).not.toEqual(expect.arrayContaining([
+      'select', 'schedulable', 'upstream_billing_rate'
+    ]))
   })
 })

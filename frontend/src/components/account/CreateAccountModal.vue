@@ -1144,7 +1144,7 @@
         </div>
 
         <div
-          v-if="form.platform === 'openai'"
+          v-if="!selfService && form.platform === 'openai'"
           class="flex items-center justify-between gap-4 border-t border-gray-200 pt-4 dark:border-dark-600"
         >
           <div>
@@ -2712,7 +2712,7 @@
           <label class="input-label mb-0">{{ t('admin.accounts.proxy') }}</label>
           <ProxyAdBanner />
         </div>
-        <ProxySelector v-model="form.proxy_id" :proxies="proxies" />
+        <ProxySelector v-model="form.proxy_id" :proxies="proxies" :allow-test="!selfService" />
       </div>
 
       <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -3613,9 +3613,10 @@ interface Props {
   show: boolean
   proxies: Proxy[]
   groups: AdminGroup[]
+  selfService?: boolean
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), { selfService: false })
 const emit = defineEmits<{
   close: []
   created: []
@@ -5124,7 +5125,7 @@ const handleSubmit = async () => {
     group_ids: form.group_ids,
     extra,
     upstream_billing_probe_enabled:
-      form.platform === 'openai' ? upstreamBillingAutoProbeEnabled.value : undefined,
+      !props.selfService && form.platform === 'openai' ? upstreamBillingAutoProbeEnabled.value : undefined,
     auto_pause_on_expired: autoPauseOnExpired.value
   })
 }

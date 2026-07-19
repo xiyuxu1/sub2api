@@ -15,29 +15,34 @@ import (
 // key = METHOD + " " + FullPath()。owner 收口由账号 repository 依据 authctx 完成：
 // 列表只见自己+public，按 id 取/改/删只作用于自己的，建号自动归属自己。
 var accountOwnerSafeRoutes = map[string]struct{}{
-	"GET /api/v1/admin/accounts":                          {},
-	"POST /api/v1/admin/accounts":                         {},
-	"GET /api/v1/admin/accounts/:id":                      {},
-	"PUT /api/v1/admin/accounts/:id":                      {},
-	"DELETE /api/v1/admin/accounts/:id":                   {},
-	"POST /api/v1/admin/accounts/import/codex-session":    {},
-	// 注意：duplicate（复制会连带 source 的分组/代理绑定）与 check-mixed-channel
-	// （按任意 group_ids 读组内账号，跨用户侧信道）不放行给普通用户（外审 P0/P1）。
-	"POST /api/v1/admin/accounts/:id/test":                {},
-	"POST /api/v1/admin/accounts/:id/refresh":             {},
+	"GET /api/v1/admin/accounts":                       {},
+	"POST /api/v1/admin/accounts":                      {},
+	"GET /api/v1/admin/accounts/self-service-options":  {},
+	"GET /api/v1/admin/accounts/:id":                   {},
+	"PUT /api/v1/admin/accounts/:id":                   {},
+	"DELETE /api/v1/admin/accounts/:id":                {},
+	"POST /api/v1/admin/accounts/import/codex-session": {},
+	// B 模式允许选择共享分组，因此放行只返回渠道冲突摘要的预检；duplicate 仍会
+	// 连带复制 source 的绑定与配置，保持 admin-only。
+	"POST /api/v1/admin/accounts/check-mixed-channel":         {},
+	"POST /api/v1/admin/accounts/:id/test":                    {},
+	"POST /api/v1/admin/accounts/:id/refresh":                 {},
 	"POST /api/v1/admin/accounts/:id/apply-oauth-credentials": {},
-	"GET /api/v1/admin/accounts/:id/usage":                {},
-	"GET /api/v1/admin/accounts/:id/models":               {},
-	// 注意：clear-error / stats / today-stats / today-stats/batch 在调用 owner 化的
-	// GetByID 之前就按 id 改/读，绕过收口（外审 P1），故不放行，保持 admin-only。
+	"GET /api/v1/admin/accounts/:id/stats":                    {},
+	"GET /api/v1/admin/accounts/:id/usage":                    {},
+	"GET /api/v1/admin/accounts/:id/today-stats":              {},
+	"POST /api/v1/admin/accounts/today-stats/batch":           {},
+	"GET /api/v1/admin/accounts/:id/models":                   {},
+	// stats / today-stats / today-stats/batch 已在 handler 先走 owner 化 GetAccount，
+	// 因此可供“我的账号”展示实时用量；clear-error 等写操作仍保持 admin-only。
 	// Claude/Anthropic OAuth 与 setup-token 导入流程（无账号归属，仅生成 URL / 交换 code；
 	// 最终建号仍走上面 owner 收口的 POST /accounts）。
-	"POST /api/v1/admin/accounts/generate-auth-url":            {},
-	"POST /api/v1/admin/accounts/generate-setup-token-url":     {},
-	"POST /api/v1/admin/accounts/exchange-code":                {},
-	"POST /api/v1/admin/accounts/exchange-setup-token-code":    {},
-	"POST /api/v1/admin/accounts/cookie-auth":                  {},
-	"POST /api/v1/admin/accounts/setup-token-cookie-auth":      {},
+	"POST /api/v1/admin/accounts/generate-auth-url":         {},
+	"POST /api/v1/admin/accounts/generate-setup-token-url":  {},
+	"POST /api/v1/admin/accounts/exchange-code":             {},
+	"POST /api/v1/admin/accounts/exchange-setup-token-code": {},
+	"POST /api/v1/admin/accounts/cookie-auth":               {},
+	"POST /api/v1/admin/accounts/setup-token-cookie-auth":   {},
 }
 
 // AccountAccessMiddleware 账号子树门卫（fork）：替代账号路由上原有的 AdminOnly 语义。
@@ -64,6 +69,26 @@ func AccountAccessMiddleware() gin.HandlerFunc {
 
 		// 把操作者写入请求 context，供 account repository 做 owner 收口。
 		ctx := authctx.WithActor(c.Request.Context(), authctx.Actor{UserID: subject.UserID, IsAdmin: isAdmin})
+		c.Request = c.Request.WithContext(ctx)
+		c.Next()
+	}
+}
+
+// AccountActorMiddleware only propagates the authenticated actor into request context.
+// It is used by explicitly registered self-service-safe OAuth/quota routes which do not
+// need the account endpoint whitelist but still require repository owner scoping.
+func AccountActorMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		subject, ok := GetAuthSubjectFromContext(c)
+		if !ok || subject.UserID <= 0 {
+			AbortWithError(c, 401, "UNAUTHORIZED", "Authorization required")
+			return
+		}
+		role, _ := GetUserRoleFromContext(c)
+		ctx := authctx.WithActor(c.Request.Context(), authctx.Actor{
+			UserID:  subject.UserID,
+			IsAdmin: role == service.RoleAdmin,
+		})
 		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 	}

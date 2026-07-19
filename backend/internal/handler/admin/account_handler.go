@@ -66,6 +66,40 @@ type AccountHandler struct {
 	upstreamBillingProbe    *service.UpstreamBillingProbeService
 }
 
+// SelfServiceOptions 是普通用户账号编辑器使用的共享资源选项。
+// Proxy 使用脱敏 DTO（不含 password），Group 使用非管理员 DTO（不含模型路由等内部字段）。
+type SelfServiceOptions struct {
+	Proxies []*dto.Proxy `json:"proxies"`
+	Groups  []*dto.Group `json:"groups"`
+}
+
+// GetSelfServiceOptions 返回账号创建/编辑所需的共享代理与分组选项。
+// GET /api/v1/admin/accounts/self-service-options
+func (h *AccountHandler) GetSelfServiceOptions(c *gin.Context) {
+	proxies, err := h.adminService.GetAllProxies(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	groups, err := h.adminService.GetAllGroups(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	out := SelfServiceOptions{
+		Proxies: make([]*dto.Proxy, 0, len(proxies)),
+		Groups:  make([]*dto.Group, 0, len(groups)),
+	}
+	for i := range proxies {
+		out.Proxies = append(out.Proxies, dto.ProxyFromService(&proxies[i]))
+	}
+	for i := range groups {
+		out.Groups = append(out.Groups, dto.GroupFromService(&groups[i]))
+	}
+	response.Success(c, out)
+}
+
 // SetUpstreamBillingProbeService attaches the optional remote billing probe service.
 func (h *AccountHandler) SetUpstreamBillingProbeService(probe *service.UpstreamBillingProbeService) {
 	h.upstreamBillingProbe = probe
@@ -143,7 +177,7 @@ type UpdateAccountRequest struct {
 	GroupIDs                *[]int64       `json:"group_ids"`
 	ExpiresAt               *int64         `json:"expires_at"`
 	AutoPauseOnExpired      *bool          `json:"auto_pause_on_expired"`
-	IsPublic                *bool          `json:"is_public"` // fork: 管理可见性开关（我的账号里翻转）
+	IsPublic                *bool          `json:"is_public"`                  // fork: 管理可见性开关（我的账号里翻转）
 	ConfirmMixedChannelRisk *bool          `json:"confirm_mixed_channel_risk"` // 用户确认混合渠道风险
 }
 
@@ -787,11 +821,22 @@ func (h *AccountHandler) CheckMixedChannel(c *gin.Context) {
 	}
 
 	accountID := int64(0)
+	accountPlatform := req.Platform
 	if req.AccountID != nil {
 		accountID = *req.AccountID
+		if accountID > 0 {
+			account, err := h.adminService.GetAccount(c.Request.Context(), accountID)
+			if err != nil {
+				response.ErrorFrom(c, err)
+				return
+			}
+			// 编辑场景以 owner 化查询返回的真实平台为准，避免调用方伪造
+			// account_id/platform 组合探测其他账号或影响冲突判断。
+			accountPlatform = account.Platform
+		}
 	}
 
-	err := h.adminService.CheckMixedChannelRisk(c.Request.Context(), accountID, req.Platform, req.GroupIDs)
+	err := h.adminService.CheckMixedChannelRisk(c.Request.Context(), accountID, accountPlatform, req.GroupIDs)
 	if err != nil {
 		var mixedErr *service.MixedChannelError
 		if errors.As(err, &mixedErr) {
@@ -1465,6 +1510,11 @@ func (h *AccountHandler) GetStats(c *gin.Context) {
 	accountID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
 		response.BadRequest(c, "Invalid account ID")
+		return
+	}
+	// 普通用户必须先通过 owner 化查询；否则 usage service 可按任意 account id 读取统计。
+	if _, err = h.adminService.GetAccount(c.Request.Context(), accountID); err != nil {
+		response.ErrorFrom(c, err)
 		return
 	}
 
@@ -2152,6 +2202,11 @@ func (h *AccountHandler) GetUsage(c *gin.Context) {
 		response.BadRequest(c, "Invalid account ID")
 		return
 	}
+	// 主动拉取上游用量前先校验账号归属，防止跨用户探测。
+	if _, err = h.adminService.GetAccount(c.Request.Context(), accountID); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
 
 	source := c.DefaultQuery("source", "active")
 	force := c.Query("force") == "true"
@@ -2268,6 +2323,10 @@ func (h *AccountHandler) GetTodayStats(c *gin.Context) {
 		response.BadRequest(c, "Invalid account ID")
 		return
 	}
+	if _, err = h.adminService.GetAccount(c.Request.Context(), accountID); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
 
 	stats, err := h.accountUsageService.GetTodayStats(c.Request.Context(), accountID)
 	if err != nil {
@@ -2283,6 +2342,8 @@ type BatchTodayStatsRequest struct {
 	AccountIDs []int64 `json:"account_ids" binding:"required"`
 }
 
+const batchTodayStatsMaxAccounts = 200
+
 // GetBatchTodayStats 批量获取多个账号的今日统计。
 // POST /api/v1/admin/accounts/today-stats/batch
 func (h *AccountHandler) GetBatchTodayStats(c *gin.Context) {
@@ -2296,6 +2357,17 @@ func (h *AccountHandler) GetBatchTodayStats(c *gin.Context) {
 	if len(accountIDs) == 0 {
 		response.Success(c, gin.H{"stats": map[string]any{}})
 		return
+	}
+	if len(accountIDs) > batchTodayStatsMaxAccounts {
+		response.BadRequest(c, "Too many account IDs; maximum is 200")
+		return
+	}
+	// 缓存命中前也要逐个验证 owner，避免利用已缓存的 admin/他人账号统计旁路读取。
+	for _, accountID := range accountIDs {
+		if _, err := h.adminService.GetAccount(c.Request.Context(), accountID); err != nil {
+			response.ErrorFrom(c, err)
+			return
+		}
 	}
 
 	cacheKey := buildAccountTodayStatsBatchCacheKey(accountIDs)

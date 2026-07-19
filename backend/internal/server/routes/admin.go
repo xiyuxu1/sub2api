@@ -27,6 +27,14 @@ func RegisterAdminRoutes(
 	accountsGroup.Use(middleware.AccountAccessMiddleware())
 	registerAccountRoutes(accountsGroup, h, stepUpAuth)
 
+	// OAuth URL/token exchange has no persistent side effects; account creation still goes
+	// through the owner-scoped /admin/accounts endpoint. Expose these flows to self-service users.
+	accountOAuth := v1.Group("/admin")
+	accountOAuth.Use(gin.HandlerFunc(jwtAuth))
+	accountOAuth.Use(gin.HandlerFunc(auditLog))
+	accountOAuth.Use(middleware.AccountActorMiddleware())
+	registerAccountOAuthSelfServiceRoutes(accountOAuth, h)
+
 	admin := v1.Group("/admin")
 	admin.Use(gin.HandlerFunc(adminAuth))
 	// 审计中间件挂在认证之后：所有管理面变更类操作 + 敏感读取入审计日志
@@ -349,6 +357,7 @@ func registerGroupRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 func registerAccountRoutes(accounts *gin.RouterGroup, h *handler.Handlers, stepUpAuth middleware.StepUpAuthMiddleware) {
 	{
 		accounts.GET("", h.Admin.Account.List)
+		accounts.GET("/self-service-options", h.Admin.Account.GetSelfServiceOptions)
 		accounts.GET("/upstream-billing-probe/settings", h.Admin.Account.GetUpstreamBillingProbeSettings)
 		accounts.PUT("/upstream-billing-probe/settings", h.Admin.Account.UpdateUpstreamBillingProbeSettings)
 		accounts.POST("/upstream-billing-probe/batch", h.Admin.Account.ProbeUpstreamBillingBatch)
@@ -424,49 +433,55 @@ func registerAnnouncementRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 func registerOpenAIOAuthRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	openai := admin.Group("/openai")
 	{
-		openai.POST("/generate-auth-url", h.Admin.OpenAIOAuth.GenerateAuthURL)
-		openai.POST("/exchange-code", h.Admin.OpenAIOAuth.ExchangeCode)
-		openai.POST("/refresh-token", h.Admin.OpenAIOAuth.RefreshToken)
 		openai.POST("/accounts/:id/refresh", h.Admin.OpenAIOAuth.RefreshAccountToken)
 		openai.POST("/create-from-oauth", h.Admin.OpenAIOAuth.CreateAccountFromOAuth)
 		openai.POST("/create-from-codex-pat", h.Admin.OpenAIOAuth.CreateAccountFromCodexPAT)
-		openai.GET("/accounts/:id/quota", h.Admin.OpenAIOAuth.QueryQuota)
 		openai.POST("/accounts/:id/reset-quota", h.Admin.OpenAIOAuth.ResetQuota)
 	}
 }
 
 func registerGeminiOAuthRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
-	gemini := admin.Group("/gemini")
-	{
-		gemini.POST("/oauth/auth-url", h.Admin.GeminiOAuth.GenerateAuthURL)
-		gemini.POST("/oauth/exchange-code", h.Admin.GeminiOAuth.ExchangeCode)
-		gemini.GET("/oauth/capabilities", h.Admin.GeminiOAuth.GetCapabilities)
-	}
+	// Self-service-safe Gemini OAuth endpoints are registered by registerAccountOAuthSelfServiceRoutes.
 }
 
 func registerAntigravityOAuthRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
-	antigravity := admin.Group("/antigravity")
-	{
-		antigravity.POST("/oauth/auth-url", h.Admin.AntigravityOAuth.GenerateAuthURL)
-		antigravity.POST("/oauth/exchange-code", h.Admin.AntigravityOAuth.ExchangeCode)
-		antigravity.POST("/oauth/refresh-token", h.Admin.AntigravityOAuth.RefreshToken)
-	}
+	// Self-service-safe Antigravity OAuth endpoints are registered by registerAccountOAuthSelfServiceRoutes.
 }
 
 func registerGrokOAuthRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	grok := admin.Group("/grok")
 	{
-		grok.POST("/oauth/auth-url", h.Admin.GrokOAuth.GenerateAuthURL)
-		grok.POST("/oauth/exchange-code", h.Admin.GrokOAuth.ExchangeCode)
-		grok.POST("/oauth/refresh-token", h.Admin.GrokOAuth.RefreshToken)
 		grok.POST("/oauth/create-from-oauth", h.Admin.GrokOAuth.CreateAccountFromOAuth)
 		grok.POST("/sso-to-oauth", h.Admin.GrokOAuth.CreateAccountsFromSSO)
 		grok.POST("/oauth/reconcile", h.Admin.GrokOAuth.ReconcileOAuthAccounts)
 		grok.POST("/accounts/:id/refresh", h.Admin.GrokOAuth.RefreshAccountToken)
-		grok.GET("/accounts/:id/quota", h.Admin.GrokOAuth.QueryQuota)
 		grok.POST("/accounts/:id/reset-quota", h.Admin.GrokOAuth.ResetQuota)
 		grok.GET("/runtime-sanity", h.Admin.GrokOAuth.RuntimeSanity)
 	}
+}
+
+func registerAccountOAuthSelfServiceRoutes(authenticated *gin.RouterGroup, h *handler.Handlers) {
+	openai := authenticated.Group("/openai")
+	openai.POST("/generate-auth-url", h.Admin.OpenAIOAuth.GenerateAuthURL)
+	openai.POST("/exchange-code", h.Admin.OpenAIOAuth.ExchangeCode)
+	openai.POST("/refresh-token", h.Admin.OpenAIOAuth.RefreshToken)
+	openai.GET("/accounts/:id/quota", h.Admin.OpenAIOAuth.QueryQuota)
+
+	gemini := authenticated.Group("/gemini")
+	gemini.POST("/oauth/auth-url", h.Admin.GeminiOAuth.GenerateAuthURL)
+	gemini.POST("/oauth/exchange-code", h.Admin.GeminiOAuth.ExchangeCode)
+	gemini.GET("/oauth/capabilities", h.Admin.GeminiOAuth.GetCapabilities)
+
+	antigravity := authenticated.Group("/antigravity")
+	antigravity.POST("/oauth/auth-url", h.Admin.AntigravityOAuth.GenerateAuthURL)
+	antigravity.POST("/oauth/exchange-code", h.Admin.AntigravityOAuth.ExchangeCode)
+	antigravity.POST("/oauth/refresh-token", h.Admin.AntigravityOAuth.RefreshToken)
+
+	grok := authenticated.Group("/grok")
+	grok.POST("/oauth/auth-url", h.Admin.GrokOAuth.GenerateAuthURL)
+	grok.POST("/oauth/exchange-code", h.Admin.GrokOAuth.ExchangeCode)
+	grok.POST("/oauth/refresh-token", h.Admin.GrokOAuth.RefreshToken)
+	grok.GET("/accounts/:id/quota", h.Admin.GrokOAuth.QueryQuota)
 }
 
 func registerProxyRoutes(admin *gin.RouterGroup, h *handler.Handlers, stepUpAuth middleware.StepUpAuthMiddleware) {

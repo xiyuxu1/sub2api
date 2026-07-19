@@ -22,8 +22,21 @@ import type {
   CheckMixedChannelRequest,
   CheckMixedChannelResponse,
   UpstreamBillingProbeResult,
-  UpstreamBillingProbeSettings
+  UpstreamBillingProbeSettings,
+  Proxy,
+  AdminGroup
 } from '@/types'
+
+export interface SelfServiceAccountOptions {
+  proxies: Proxy[]
+  groups: AdminGroup[]
+}
+
+/** Shared proxy/group choices for the self-service account editor. Proxy passwords are omitted server-side. */
+export async function getSelfServiceOptions(): Promise<SelfServiceAccountOptions> {
+  const { data } = await apiClient.get<SelfServiceAccountOptions>('/admin/accounts/self-service-options')
+  return data
+}
 
 /**
  * List all accounts with pagination
@@ -883,6 +896,7 @@ export async function probeUpstreamBillingBatch(accountIds: number[]): Promise<U
 }
 
 export const accountsAPI = {
+  getSelfServiceOptions,
   list,
   listWithEtag,
   getById,

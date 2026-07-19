@@ -209,7 +209,9 @@ const routes: RouteRecordRaw[] = [
     // fork: 普通用户自助管理自己的账号（复用 admin 账号接口，后端已按 owner 收口）
     path: '/my-accounts',
     name: 'MyAccounts',
-    component: () => import('@/views/user/MyAccountsView.vue'),
+    // 完整复用账号管理页；AccountsView 根据角色切换为 self-service 模式。
+    component: () => import('@/views/admin/AccountsView.vue'),
+    props: { selfService: true },
     meta: {
       requiresAuth: true,
       requiresAdmin: false,

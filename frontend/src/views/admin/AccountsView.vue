@@ -81,24 +81,24 @@
                   class="absolute right-0 z-50 mt-2 w-[min(20rem,calc(100vw-2rem))] origin-top-right overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800"
                 >
                   <div class="max-h-[70vh] overflow-y-auto p-2">
-                    <div class="px-2 py-2">
+                    <div v-if="!isSelfService" class="px-2 py-2">
                       <div class="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
                         {{ t('admin.accounts.dataActions') }}
                       </div>
                     </div>
-                    <button class="account-tools-menu-item" @click="openSyncFromCrs">
+                    <button v-if="!isSelfService" class="account-tools-menu-item" @click="openSyncFromCrs">
                       <span class="account-tools-menu-icon bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300">
                         <Icon name="sync" size="sm" />
                       </span>
                       <span class="flex-1 text-left">{{ t('admin.accounts.syncFromCrs') }}</span>
                     </button>
-                    <button class="account-tools-menu-item" @click="openImportData">
+                    <button v-if="!isSelfService" class="account-tools-menu-item" @click="openImportData">
                       <span class="account-tools-menu-icon bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-300">
                         <Icon name="upload" size="sm" />
                       </span>
                       <span class="flex-1 text-left">{{ t('admin.accounts.dataImport') }}</span>
                     </button>
-                    <button class="account-tools-menu-item" @click="openExportDataDialogFromMenu">
+                    <button v-if="!isSelfService" class="account-tools-menu-item" @click="openExportDataDialogFromMenu">
                       <span class="account-tools-menu-icon bg-violet-50 text-violet-600 dark:bg-violet-900/30 dark:text-violet-300">
                         <Icon name="download" size="sm" />
                       </span>
@@ -113,19 +113,19 @@
                       </span>
                     </button>
 
-                    <div class="my-2 border-t border-gray-100 dark:border-gray-700"></div>
-                    <div class="px-2 py-2">
+                    <div v-if="!isSelfService" class="my-2 border-t border-gray-100 dark:border-gray-700"></div>
+                    <div v-if="!isSelfService" class="px-2 py-2">
                       <div class="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
                         {{ t('admin.accounts.toolActions') }}
                       </div>
                     </div>
-                    <button class="account-tools-menu-item" @click="openErrorPassthrough">
+                    <button v-if="!isSelfService" class="account-tools-menu-item" @click="openErrorPassthrough">
                       <span class="account-tools-menu-icon bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-300">
                         <Icon name="shield" size="sm" />
                       </span>
                       <span class="flex-1 text-left">{{ t('admin.errorPassthrough.title') }}</span>
                     </button>
-                    <button class="account-tools-menu-item" @click="openTLSFingerprintProfiles">
+                    <button v-if="!isSelfService" class="account-tools-menu-item" @click="openTLSFingerprintProfiles">
                       <span class="account-tools-menu-icon bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-200">
                         <Icon name="lock" size="sm" />
                       </span>
@@ -173,6 +173,7 @@
       </template>
       <template #table>
         <AccountBulkActionsBar
+          v-if="!isSelfService"
           :selected-ids="selIds"
           @delete="handleBulkDelete"
           @reset-status="handleBulkResetStatus"
@@ -281,12 +282,25 @@
           </template>
           <template #cell-status="{ row }">
             <div class="flex items-center gap-1.5">
-              <AccountStatusIndicator :account="row" @show-temp-unsched="handleShowTempUnsched" />
+              <AccountStatusIndicator :account="row" @show-temp-unsched="!isSelfService && handleShowTempUnsched(row)" />
             </div>
           </template>
           <template #cell-schedulable="{ row }">
             <button @click="handleToggleSchedulable(row)" :disabled="togglingSchedulable === row.id" class="relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:focus:ring-offset-dark-800" :class="[row.schedulable ? 'bg-primary-500 hover:bg-primary-600' : 'bg-gray-200 hover:bg-gray-300 dark:bg-dark-600 dark:hover:bg-dark-500']" :title="row.schedulable ? t('admin.accounts.schedulableEnabled') : t('admin.accounts.schedulableDisabled')">
               <span class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out" :class="[row.schedulable ? 'translate-x-4' : 'translate-x-0']" />
+            </button>
+          </template>
+          <template #cell-visibility="{ row }">
+            <button
+              type="button"
+              :disabled="togglingVisibilityId === row.id"
+              class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium transition disabled:opacity-50"
+              :class="row.is_public
+                ? 'bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-300'
+                : 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300'"
+              @click="toggleVisibility(row)"
+            >
+              {{ row.is_public ? t('myAccounts.public') : t('myAccounts.private') }}
             </button>
           </template>
           <template #cell-today_stats="{ row }">
@@ -308,6 +322,7 @@
           <template #cell-usage="{ row }">
             <AccountUsageCell
               :account="row"
+              :allow-admin-actions="!isSelfService"
               :today-stats="todayStatsByAccountId[String(row.id)] ?? null"
               :today-stats-loading="todayStatsLoading"
               :manual-refresh-token="usageManualRefreshToken"
@@ -330,7 +345,7 @@
                 <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200" :title="t('admin.accounts.fallbackActiveTip', { origin: row.proxy_fallback_origin_name })">
                   {{ t('admin.accounts.fallbackActive') }}
                 </span>
-                <button class="text-xs px-1.5 py-0.5 rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" @click="onRevertFallback(row)">{{ t('admin.accounts.revertProxy') }}</button>
+                <button v-if="!isSelfService" class="text-xs px-1.5 py-0.5 rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" @click="onRevertFallback(row)">{{ t('admin.accounts.revertProxy') }}</button>
               </div>
             </div>
           </template>
@@ -428,13 +443,13 @@
       </template>
       <template #pagination><Pagination v-if="pagination.total > 0" :page="pagination.page" :total="pagination.total" :page-size="pagination.page_size" @update:page="handlePageChange" @update:pageSize="handlePageSizeChange" /></template>
     </TablePageLayout>
-    <CreateAccountModal :show="showCreate" :proxies="proxies" :groups="groups" @close="showCreate = false" @created="reload" />
-    <EditAccountModal :show="showEdit" :account="edAcc" :proxies="proxies" :groups="groups" @close="showEdit = false" @updated="handleAccountUpdated" />
+    <CreateAccountModal :show="showCreate" :proxies="proxies" :groups="groups" :self-service="isSelfService" @close="showCreate = false" @created="reload" />
+    <EditAccountModal :show="showEdit" :account="edAcc" :proxies="proxies" :groups="groups" :self-service="isSelfService" @close="showEdit = false" @updated="handleAccountUpdated" />
     <ReAuthAccountModal :show="showReAuth" :account="reAuthAcc" @close="closeReAuthModal" @reauthorized="handleAccountUpdated" />
     <AccountTestModal :show="showTest" :account="testingAcc" @close="closeTestModal" />
     <AccountStatsModal :show="showStats" :account="statsAcc" @close="closeStatsModal" />
     <ScheduledTestsPanel :show="showSchedulePanel" :account-id="scheduleAcc?.id ?? null" :model-options="scheduleModelOptions" @close="closeSchedulePanel" />
-    <AccountActionMenu :show="menu.show" :account="menu.acc" :position="menu.pos" @close="menu.show = false" @test="handleTest" @stats="handleViewStats" @schedule="handleSchedule" @duplicate="handleDuplicateAccount" @reauth="handleReAuth" @refresh-token="handleRefresh" @recover-state="handleRecoverState" @reset-quota="handleResetQuota" @set-privacy="handleSetPrivacy" @create-spark-shadow="handleCreateSparkShadow" />
+    <AccountActionMenu :show="menu.show" :account="menu.acc" :position="menu.pos" :self-service="isSelfService" @close="menu.show = false" @test="handleTest" @stats="handleViewStats" @schedule="handleSchedule" @duplicate="handleDuplicateAccount" @reauth="handleReAuth" @refresh-token="handleRefresh" @recover-state="handleRecoverState" @reset-quota="handleResetQuota" @set-privacy="handleSetPrivacy" @create-spark-shadow="handleCreateSparkShadow" />
     <SyncFromCrsModal :show="showSync" @close="showSync = false" @synced="reload" />
     <ImportDataModal :show="showImportData" @close="showImportData = false" @imported="handleDataImported" />
     <BulkEditAccountModal
@@ -510,6 +525,8 @@ import { sanitizeUrl } from '@/utils/url'
 import type { Account, AccountPlatform, AccountSchedulerGroupScore, AccountType, Proxy as AccountProxy, AdminGroup, WindowStats, ClaudeModel, UpstreamBillingProbeSnapshot } from '@/types'
 
 const { t } = useI18n()
+const props = withDefaults(defineProps<{ selfService?: boolean }>(), { selfService: false })
+const isSelfService = computed(() => props.selfService)
 const appStore = useAppStore()
 const authStore = useAuthStore()
 
@@ -583,6 +600,7 @@ const showSchedulePanel = ref(false)
 const scheduleAcc = ref<Account | null>(null)
 const scheduleModelOptions = ref<SelectOption[]>([])
 const togglingSchedulable = ref<number | null>(null)
+const togglingVisibilityId = ref<number | null>(null)
 const menu = reactive<{show:boolean, acc:Account|null, pos:{top:number, left:number}|null}>({ show: false, acc: null, pos: null })
 const exportingData = ref(false)
 const probingUpstreamBilling = reactive(new Set<number>())
@@ -595,14 +613,16 @@ useIntervalFn(() => { upstreamBillingNow.value = Date.now() }, 60_000)
 const showAccountToolsDropdown = ref(false)
 const accountToolsDropdownRef = ref<HTMLElement | null>(null)
 const hiddenColumns = reactive<Set<string>>(new Set())
-const DEFAULT_HIDDEN_COLUMNS = ['today_stats', 'proxy', 'notes', 'priority', 'scheduler_score', 'rate_multiplier']
-const HIDDEN_COLUMNS_KEY = 'account-hidden-columns'
+const DEFAULT_HIDDEN_COLUMNS = !props.selfService
+  ? ['today_stats', 'proxy', 'notes', 'priority', 'scheduler_score', 'rate_multiplier']
+  : ['notes', 'scheduler_score', 'rate_multiplier']
+const HIDDEN_COLUMNS_KEY = !props.selfService ? 'account-hidden-columns' : 'my-account-hidden-columns'
 // One-time migration: hide scheduler score for existing admins too, because showing it opt-ins to heavy backend scoring.
-const HIDDEN_COLUMNS_VERSION_KEY = 'account-hidden-columns-version'
+const HIDDEN_COLUMNS_VERSION_KEY = !props.selfService ? 'account-hidden-columns-version' : 'my-account-hidden-columns-version'
 const HIDDEN_COLUMNS_CURRENT_VERSION = 'scheduler-score-hidden-by-default'
 
 // Sorting settings
-const ACCOUNT_SORT_STORAGE_KEY = 'account-table-sort'
+const ACCOUNT_SORT_STORAGE_KEY = !props.selfService ? 'account-table-sort' : 'my-account-table-sort'
 type AccountSortOrder = 'asc' | 'desc'
 type AccountSortState = {
   sort_by: string
@@ -641,7 +661,7 @@ const sortState = reactive<AccountSortState>(loadInitialAccountSortState())
 // Auto refresh settings
 const showAutoRefreshDropdown = ref(false)
 const autoRefreshDropdownRef = ref<HTMLElement | null>(null)
-const AUTO_REFRESH_STORAGE_KEY = 'account-auto-refresh'
+const AUTO_REFRESH_STORAGE_KEY = !props.selfService ? 'account-auto-refresh' : 'my-account-auto-refresh'
 const autoRefreshIntervals = [5, 10, 15, 30] as const
 const autoRefreshEnabled = ref(false)
 const autoRefreshIntervalSeconds = ref<(typeof autoRefreshIntervals)[number]>(30)
@@ -966,6 +986,7 @@ const reload = async () => {
 }
 
 const refreshUpstreamBillingSortedList = async (force = false) => {
+  if (props.selfService) return
   if (sortState.sort_by !== 'upstream_billing_rate') return
 
   const minute = Math.floor(upstreamBillingNow.value / 60_000)
@@ -1358,15 +1379,19 @@ function getAntigravityTierClass(row: any): string {
 // All available columns
 const allColumns = computed(() => {
   const c = [
-    { key: 'select', label: '', sortable: false },
     { key: 'name', label: t('admin.accounts.columns.name'), sortable: true },
     { key: 'id', label: t('admin.accounts.columns.id'), sortable: true },
     { key: 'platform_type', label: t('admin.accounts.columns.platformType'), sortable: false },
     { key: 'capacity', label: t('admin.accounts.columns.capacity'), sortable: false },
     { key: 'status', label: t('admin.accounts.columns.status'), sortable: true },
-    { key: 'schedulable', label: t('admin.accounts.columns.schedulable'), sortable: true },
     { key: 'today_stats', label: t('admin.accounts.columns.todayStats'), sortable: false }
   ]
+  if (!props.selfService) {
+    c.unshift({ key: 'select', label: '', sortable: false })
+    c.splice(c.length - 1, 0, { key: 'schedulable', label: t('admin.accounts.columns.schedulable'), sortable: true })
+  } else {
+    c.splice(c.length - 1, 0, { key: 'visibility', label: t('myAccounts.visibility'), sortable: false })
+  }
   if (!authStore.isSimpleMode) {
     c.push({ key: 'groups', label: t('admin.accounts.columns.groups'), sortable: false })
   }
@@ -1376,13 +1401,15 @@ const allColumns = computed(() => {
     { key: 'priority', label: t('admin.accounts.columns.priority'), sortable: true },
     { key: 'scheduler_score', label: t('admin.accounts.columns.schedulerScore'), sortable: false },
     { key: 'rate_multiplier', label: t('admin.accounts.columns.billingRateMultiplier'), sortable: true },
-    { key: 'upstream_billing_rate', label: t('admin.accounts.columns.upstreamBillingRate'), sortable: true },
     { key: 'last_used_at', label: t('admin.accounts.columns.lastUsed'), sortable: true },
     { key: 'created_at', label: t('admin.accounts.columns.createdAt'), sortable: true },
     { key: 'expires_at', label: t('admin.accounts.columns.expiresAt'), sortable: true },
     { key: 'notes', label: t('admin.accounts.columns.notes'), sortable: false },
     { key: 'actions', label: t('admin.accounts.columns.actions'), sortable: false }
   )
+  if (!props.selfService) {
+    c.splice(c.length - 5, 0, { key: 'upstream_billing_rate', label: t('admin.accounts.columns.upstreamBillingRate'), sortable: true })
+  }
   return c
 })
 
@@ -1399,6 +1426,20 @@ const cols = computed(() =>
 )
 
 const handleEdit = (a: Account) => { edAcc.value = a; showEdit.value = true }
+const toggleVisibility = async (account: Account) => {
+  if (togglingVisibilityId.value !== null) return
+  const next = !account.is_public
+  togglingVisibilityId.value = account.id
+  account.is_public = next
+  try {
+    await adminAPI.accounts.update(account.id, { is_public: next })
+  } catch (error) {
+    account.is_public = !next
+    appStore.showError(extractApiErrorMessage(error))
+  } finally {
+    togglingVisibilityId.value = null
+  }
+}
 const openMenu = (a: Account, e: MouseEvent) => {
   menu.acc = a
 
@@ -2051,11 +2092,17 @@ const handleClickOutside = (event: MouseEvent) => {
 
 onMounted(async () => {
   load()
-  loadUpstreamBillingProbeGlobalState()
+  if (!props.selfService) loadUpstreamBillingProbeGlobalState()
   try {
-    const [p, g] = await Promise.all([adminAPI.proxies.getAll(), adminAPI.groups.getAll()])
-    proxies.value = p
-    groups.value = g
+    if (!props.selfService) {
+      const [p, g] = await Promise.all([adminAPI.proxies.getAll(), adminAPI.groups.getAll()])
+      proxies.value = p
+      groups.value = g
+    } else {
+      const options = await adminAPI.accounts.getSelfServiceOptions()
+      proxies.value = options.proxies
+      groups.value = options.groups
+    }
   } catch (error) {
     console.error('Failed to load proxies/groups:', error)
   }

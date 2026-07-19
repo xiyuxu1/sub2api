@@ -50,6 +50,7 @@ func TestAccountHandlerCheckMixedChannelNoRisk(t *testing.T) {
 
 func TestAccountHandlerCheckMixedChannelWithRisk(t *testing.T) {
 	adminSvc := newStubAdminService()
+	adminSvc.getAccountResult = &service.Account{ID: 99, Platform: service.PlatformAntigravity}
 	adminSvc.checkMixedErr = &service.MixedChannelError{
 		GroupID:         27,
 		GroupName:       "claude-max",
@@ -83,6 +84,26 @@ func TestAccountHandlerCheckMixedChannelWithRisk(t *testing.T) {
 	require.Equal(t, "Antigravity", details["current_platform"])
 	require.Equal(t, "Anthropic", details["other_platform"])
 	require.Equal(t, int64(99), adminSvc.lastMixedCheck.accountID)
+	require.Equal(t, service.PlatformAntigravity, adminSvc.lastMixedCheck.platform)
+}
+
+func TestAccountHandlerCheckMixedChannelRejectsNonOwnedEditAccount(t *testing.T) {
+	adminSvc := newStubAdminService()
+	adminSvc.getAccountErr = service.ErrAccountNotFound
+	router := setupAccountMixedChannelRouter(adminSvc)
+
+	body, _ := json.Marshal(map[string]any{
+		"platform":   "antigravity",
+		"group_ids":  []int64{27},
+		"account_id": 99,
+	})
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/accounts/check-mixed-channel", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusNotFound, rec.Code)
+	require.Equal(t, int64(0), adminSvc.lastMixedCheck.accountID)
 }
 
 func TestAccountHandlerCreateMixedChannelConflictSimplifiedResponse(t *testing.T) {

@@ -1392,7 +1392,7 @@
           <label class="input-label mb-0">{{ t('admin.accounts.proxy') }}</label>
           <ProxyAdBanner />
         </div>
-        <ProxySelector v-model="form.proxy_id" :proxies="proxies" />
+        <ProxySelector v-model="form.proxy_id" :proxies="proxies" :allow-test="!selfService" />
       </div>
 
       <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -1599,7 +1599,7 @@
       </div>
 
       <div
-        v-if="account?.platform === 'openai' && account?.type === 'apikey'"
+        v-if="!selfService && account?.platform === 'openai' && account?.type === 'apikey'"
         class="flex items-center justify-between gap-4 border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div>
@@ -2633,9 +2633,10 @@ interface Props {
   account: Account | null
   proxies: Proxy[]
   groups: AdminGroup[]
+  selfService?: boolean
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), { selfService: false })
 const emit = defineEmits<{
   close: []
   updated: [account: Account]
@@ -4490,7 +4491,9 @@ const handleSubmit = async () => {
         } else {
           newExtra.openai_responses_mode = openAIResponsesMode.value
         }
-			newExtra.upstream_billing_probe_enabled = upstreamBillingAutoProbeEnabled.value
+			if (!props.selfService) {
+				newExtra.upstream_billing_probe_enabled = upstreamBillingAutoProbeEnabled.value
+			}
 		}
 		if (autoPause5hThreshold.value != null && autoPause5hThreshold.value > 0) {
 			newExtra.auto_pause_5h_threshold = autoPause5hThreshold.value / 100

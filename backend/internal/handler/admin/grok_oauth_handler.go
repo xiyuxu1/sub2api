@@ -513,6 +513,10 @@ func (h *GrokOAuthHandler) QueryQuota(c *gin.Context) {
 		response.BadRequest(c, "Invalid account ID")
 		return
 	}
+	if _, err = h.adminService.GetAccount(c.Request.Context(), accountID); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
 	if h.quotaService == nil {
 		response.BadRequest(c, "grok quota service is not enabled")
 		return
