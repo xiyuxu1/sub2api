@@ -1,19 +1,19 @@
 <template>
   <BaseDialog
     :show="show"
-    :title="t('admin.accounts.dataImportTitle')"
+    :title="t(selfService ? 'admin.accounts.selfDataImportTitle' : 'admin.accounts.dataImportTitle')"
     width="normal"
     close-on-click-outside
     @close="handleClose"
   >
     <form id="import-data-form" class="space-y-4" @submit.prevent="handleImport">
       <div class="text-sm text-gray-600 dark:text-dark-300">
-        {{ t('admin.accounts.dataImportHint') }}
+        {{ t(selfService ? 'admin.accounts.selfDataImportHint' : 'admin.accounts.dataImportHint') }}
       </div>
       <div
         class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-600 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-400"
       >
-        {{ t('admin.accounts.dataImportWarning') }}
+        {{ t(selfService ? 'admin.accounts.selfDataImportWarning' : 'admin.accounts.dataImportWarning') }}
       </div>
 
       <div>
@@ -105,6 +105,7 @@ import type { AdminDataImportResult, AdminDataPayload } from '@/types'
 
 interface Props {
   show: boolean
+  selfService?: boolean
 }
 
 interface Emits {
@@ -112,7 +113,7 @@ interface Emits {
   (e: 'imported'): void
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), { selfService: false })
 const emit = defineEmits<Emits>()
 
 const { t } = useI18n()
@@ -124,6 +125,7 @@ const dragDepth = ref(0)
 const dragActive = computed(() => dragDepth.value > 0)
 const hasCreatedData = ref(false)
 const result = ref<AdminDataImportResult | null>(null)
+const importOperationKey = ref('')
 
 const fileInput = ref<HTMLInputElement | null>(null)
 const selectedFilesLabel = computed(() => {
@@ -143,6 +145,7 @@ watch(
       dragDepth.value = 0
       hasCreatedData.value = false
       result.value = null
+      importOperationKey.value = ''
       if (fileInput.value) {
         fileInput.value.value = ''
       }
@@ -189,6 +192,7 @@ const setSelectedFiles = (sourceFiles: FileList | File[] | null | undefined) => 
   }
   files.value = picked
   result.value = null
+  importOperationKey.value = ''
 }
 
 const handleDragEnter = () => {
@@ -266,6 +270,16 @@ const mergeDataPayloads = (payloads: AdminDataPayload[]): AdminDataPayload => {
   }
 }
 
+const getImportOperationKey = () => {
+  if (!importOperationKey.value) {
+    const requestID = globalThis.crypto?.randomUUID?.()
+      ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    const prefix = props.selfService ? 'self-account-data-import' : 'account-data-import'
+    importOperationKey.value = `${prefix}-${requestID}`
+  }
+  return importOperationKey.value
+}
+
 const handleImport = async () => {
   if (files.value.length === 0) {
     appStore.showError(t('admin.accounts.dataImportSelectFile'))
@@ -293,12 +307,17 @@ const handleImport = async () => {
     }
     const dataPayload = mergeDataPayloads(dataPayloads)
 
-    const res = await adminAPI.accounts.importData({
+    const importRequest = {
       data: dataPayload,
       skip_default_group_bind: true
-    })
+    }
+    const res = props.selfService
+      ? await adminAPI.accounts.importSelfServiceData(importRequest, getImportOperationKey())
+      : await adminAPI.accounts.importData(importRequest, getImportOperationKey())
 
     result.value = res
+    // 收到服务端响应说明本次逻辑操作已完成;只有网络/请求失败时才保留 key 供重试。
+    importOperationKey.value = ''
 
     const msgParams: Record<string, unknown> = {
       account_created: res.account_created,

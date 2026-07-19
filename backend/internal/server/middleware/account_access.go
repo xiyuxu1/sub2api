@@ -22,17 +22,19 @@ var accountOwnerSafeRoutes = map[string]struct{}{
 	"PUT /api/v1/admin/accounts/:id":                   {},
 	"DELETE /api/v1/admin/accounts/:id":                {},
 	"POST /api/v1/admin/accounts/import/codex-session": {},
+	"POST /api/v1/admin/accounts/import/data":          {},
 	// B 模式允许选择共享分组，因此放行只返回渠道冲突摘要的预检；duplicate 仍会
 	// 连带复制 source 的绑定与配置，保持 admin-only。
-	"POST /api/v1/admin/accounts/check-mixed-channel":         {},
-	"POST /api/v1/admin/accounts/:id/test":                    {},
-	"POST /api/v1/admin/accounts/:id/refresh":                 {},
-	"POST /api/v1/admin/accounts/:id/apply-oauth-credentials": {},
-	"GET /api/v1/admin/accounts/:id/stats":                    {},
-	"GET /api/v1/admin/accounts/:id/usage":                    {},
-	"GET /api/v1/admin/accounts/:id/today-stats":              {},
-	"POST /api/v1/admin/accounts/today-stats/batch":           {},
-	"GET /api/v1/admin/accounts/:id/models":                   {},
+	"POST /api/v1/admin/accounts/check-mixed-channel":              {},
+	"POST /api/v1/admin/accounts/:id/test":                         {},
+	"POST /api/v1/admin/accounts/:id/refresh":                      {},
+	"POST /api/v1/admin/accounts/:id/apply-oauth-credentials":      {},
+	"GET /api/v1/admin/accounts/:id/stats":                         {},
+	"GET /api/v1/admin/accounts/:id/usage":                         {},
+	"GET /api/v1/admin/accounts/:id/today-stats":                   {},
+	"POST /api/v1/admin/accounts/today-stats/batch":                {},
+	"GET /api/v1/admin/accounts/:id/models":                        {},
+	"GET /api/v1/admin/accounts/antigravity/default-model-mapping": {},
 	// stats / today-stats / today-stats/batch 已在 handler 先走 owner 化 GetAccount，
 	// 因此可供“我的账号”展示实时用量；clear-error 等写操作仍保持 admin-only。
 	// Claude/Anthropic OAuth 与 setup-token 导入流程（无账号归属，仅生成 URL / 交换 code；

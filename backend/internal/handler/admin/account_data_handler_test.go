@@ -71,7 +71,50 @@ func setupAccountDataRouter() (*gin.Engine, *stubAdminService) {
 
 	router.GET("/api/v1/admin/accounts/data", h.ExportData)
 	router.POST("/api/v1/admin/accounts/data", h.ImportData)
+	router.POST("/api/v1/admin/accounts/import/data", h.ImportSelfServiceData)
 	return router, adminSvc
+}
+
+func TestImportSelfServiceDataCreatesAccountsWithoutMutatingProxyInfrastructure(t *testing.T) {
+	router, adminSvc := setupAccountDataRouter()
+
+	dataPayload := map[string]any{
+		"data": map[string]any{
+			"type":    dataType,
+			"version": dataVersion,
+			"proxies": []map[string]any{{
+				"proxy_key": "socks5|1.2.3.4|1080|u|p",
+				"name":      "must-not-be-created",
+				"protocol":  "socks5",
+				"host":      "1.2.3.4",
+				"port":      1080,
+				"username":  "u",
+				"password":  "p",
+				"status":    "active",
+			}},
+			"accounts": []map[string]any{{
+				"name":        "temporary-account",
+				"platform":    service.PlatformOpenAI,
+				"type":        service.AccountTypeOAuth,
+				"credentials": map[string]any{"token": "x"},
+				"proxy_key":   "socks5|1.2.3.4|1080|u|p",
+				"concurrency": 3,
+				"priority":    50,
+			}},
+		},
+	}
+
+	body, _ := json.Marshal(dataPayload)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/accounts/import/data", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Empty(t, adminSvc.createdProxies)
+	require.Len(t, adminSvc.createdAccounts, 1)
+	require.Nil(t, adminSvc.createdAccounts[0].ProxyID)
+	require.True(t, adminSvc.createdAccounts[0].SkipDefaultGroupBind)
 }
 
 func TestExportDataIncludesSecrets(t *testing.T) {
@@ -316,4 +359,32 @@ func TestImportDataReusesProxyAndSkipsDefaultGroup(t *testing.T) {
 	require.Len(t, adminSvc.createdProxies, 0)
 	require.Len(t, adminSvc.createdAccounts, 1)
 	require.True(t, adminSvc.createdAccounts[0].SkipDefaultGroupBind)
+}
+
+func TestImportDataCanReuseExistingProxyWhenBundleOmitsProxyRecords(t *testing.T) {
+	router, adminSvc := setupAccountDataRouter()
+	proxyKey := "socks5|1.2.3.4|1080|u|p"
+	adminSvc.proxies = []service.Proxy{{
+		ID: 1, Name: "existing", Protocol: "socks5", Host: "1.2.3.4", Port: 1080,
+		Username: "u", Password: "p", Status: service.StatusActive,
+	}}
+
+	payload := map[string]any{"data": map[string]any{
+		"type": dataType, "version": dataVersion, "proxies": []any{},
+		"accounts": []map[string]any{{
+			"name": "acc", "platform": service.PlatformOpenAI, "type": service.AccountTypeOAuth,
+			"credentials": map[string]any{"token": "x"}, "proxy_key": proxyKey,
+			"concurrency": 3, "priority": 50,
+		}},
+	}}
+	body, _ := json.Marshal(payload)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/accounts/data", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Len(t, adminSvc.createdAccounts, 1)
+	require.NotNil(t, adminSvc.createdAccounts[0].ProxyID)
+	require.Equal(t, int64(1), *adminSvc.createdAccounts[0].ProxyID)
 }

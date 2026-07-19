@@ -238,11 +238,38 @@ func (h *AccountHandler) ImportData(c *gin.Context) {
 	}
 
 	executeAdminIdempotentJSON(c, "admin.accounts.import_data", req, service.DefaultWriteIdempotencyTTL(), func(ctx context.Context) (any, error) {
-		return h.importData(ctx, req)
+		return h.importData(ctx, req, true)
 	})
 }
 
-func (h *AccountHandler) importData(ctx context.Context, req DataImportRequest) (DataImportResult, error) {
+// ImportSelfServiceData imports account records for the authenticated owner without
+// allowing the uploaded bundle to create or mutate shared proxy infrastructure.
+// Accounts that referenced a bundled proxy are imported unbound; the owner can select
+// one of the existing shared proxies afterwards through the regular account editor.
+func (h *AccountHandler) ImportSelfServiceData(c *gin.Context) {
+	var req DataImportRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	if err := validateDataHeader(req.Data); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	req.Data.Proxies = []DataProxy{}
+	for i := range req.Data.Accounts {
+		req.Data.Accounts[i].ProxyKey = nil
+	}
+	skipDefaultGroupBind := true
+	req.SkipDefaultGroupBind = &skipDefaultGroupBind
+
+	executeAdminIdempotentJSON(c, "self.accounts.import_data", req, service.DefaultWriteIdempotencyTTL(), func(ctx context.Context) (any, error) {
+		return h.importData(ctx, req, false)
+	})
+}
+
+func (h *AccountHandler) importData(ctx context.Context, req DataImportRequest, allowProxyInfrastructure bool) (DataImportResult, error) {
 	skipDefaultGroupBind := true
 	if req.SkipDefaultGroupBind != nil {
 		skipDefaultGroupBind = *req.SkipDefaultGroupBind
@@ -251,9 +278,13 @@ func (h *AccountHandler) importData(ctx context.Context, req DataImportRequest) 
 	dataPayload := req.Data
 	result := DataImportResult{}
 
-	existingProxies, err := h.listAllProxies(ctx)
-	if err != nil {
-		return result, err
+	existingProxies := []service.Proxy{}
+	if allowProxyInfrastructure {
+		var err error
+		existingProxies, err = h.listAllProxies(ctx)
+		if err != nil {
+			return result, err
+		}
 	}
 
 	proxyKeyToID := make(map[string]int64, len(existingProxies))

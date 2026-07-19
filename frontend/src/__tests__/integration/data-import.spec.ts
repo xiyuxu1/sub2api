@@ -17,7 +17,8 @@ vi.mock('@/stores/app', () => ({
 vi.mock('@/api/admin', () => ({
   adminAPI: {
     accounts: {
-      importData: vi.fn()
+      importData: vi.fn(),
+      importSelfServiceData: vi.fn()
     }
   }
 }))
@@ -28,9 +29,9 @@ vi.mock('vue-i18n', () => ({
   })
 }))
 
-const mountModal = () =>
+const mountModal = (selfService = false) =>
   mount(ImportDataModal, {
-    props: { show: true },
+    props: { show: true, selfService },
     global: {
       stubs: {
         BaseDialog: { template: '<div><slot /><slot name="footer" /></div>' }
@@ -60,6 +61,7 @@ describe('ImportDataModal', () => {
     showWarning.mockReset()
     const { adminAPI } = await import('@/api/admin')
     vi.mocked(adminAPI.accounts.importData).mockReset()
+    vi.mocked(adminAPI.accounts.importSelfServiceData).mockReset()
   })
 
   it('未选择文件时提示错误', async () => {
@@ -131,7 +133,36 @@ describe('ImportDataModal', () => {
         accounts: [{ name: 'a' }]
       }),
       skip_default_group_bind: true
+    }, expect.stringMatching(/^account-data-import-/))
+  })
+
+  it('self-service mode uses the owner-scoped account-only import endpoint', async () => {
+    const { adminAPI } = await import('@/api/admin')
+    vi.mocked(adminAPI.accounts.importSelfServiceData).mockResolvedValue({
+      proxy_created: 0,
+      proxy_reused: 0,
+      proxy_failed: 0,
+      account_created: 1,
+      account_failed: 0
     })
+
+    const wrapper = mountModal(true)
+    const input = wrapper.find('input[type="file"]')
+    const data = {
+      exported_at: '2026-07-19T00:00:00Z',
+      proxies: [],
+      accounts: [{ name: 'temporary-account' }]
+    }
+    setInputFiles(input.element, [makeJsonFile('temporary.json', JSON.stringify(data))])
+    await input.trigger('change')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(adminAPI.accounts.importSelfServiceData).toHaveBeenCalledWith({
+      data,
+      skip_default_group_bind: true
+    }, expect.stringMatching(/^self-account-data-import-/))
+    expect(adminAPI.accounts.importData).not.toHaveBeenCalled()
   })
 
   it('merges multiple selected JSON files before importing', async () => {
@@ -171,7 +202,7 @@ describe('ImportDataModal', () => {
         accounts: [{ name: 'a' }, { name: 'b' }]
       }),
       skip_default_group_bind: true
-    })
+    }, expect.stringMatching(/^account-data-import-/))
     expect(showSuccess).toHaveBeenCalledWith('admin.accounts.dataImportSuccess')
   })
 
@@ -210,5 +241,38 @@ describe('ImportDataModal', () => {
 
     expect(wrapper.emitted('imported')).toHaveLength(1)
     expect(wrapper.emitted('close')).toHaveLength(1)
+  })
+
+  it('请求失败后重试复用同一个幂等键', async () => {
+    const { adminAPI } = await import('@/api/admin')
+    vi.mocked(adminAPI.accounts.importSelfServiceData)
+      .mockRejectedValueOnce(new Error('network interrupted'))
+      .mockResolvedValueOnce({
+        proxy_created: 0,
+        proxy_reused: 0,
+        proxy_failed: 0,
+        account_created: 1,
+        account_failed: 0
+      })
+
+    const wrapper = mountModal(true)
+    const input = wrapper.find('input[type="file"]')
+    setInputFiles(input.element, [
+      makeJsonFile(
+        'retry.json',
+        JSON.stringify({ proxies: [], accounts: [{ name: 'retry-account' }] })
+      )
+    ])
+    await input.trigger('change')
+
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    const calls = vi.mocked(adminAPI.accounts.importSelfServiceData).mock.calls
+    expect(calls).toHaveLength(2)
+    expect(calls[0]?.[1]).toMatch(/^self-account-data-import-/)
+    expect(calls[1]?.[1]).toBe(calls[0]?.[1])
   })
 })

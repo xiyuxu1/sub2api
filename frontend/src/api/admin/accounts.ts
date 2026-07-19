@@ -663,10 +663,26 @@ export async function exportData(options?: {
 export async function importData(payload: {
   data: AdminDataPayload
   skip_default_group_bind?: boolean
-}): Promise<AdminDataImportResult> {
+}, idempotencyKey: string): Promise<AdminDataImportResult> {
   const { data } = await apiClient.post<AdminDataImportResult>('/admin/accounts/data', {
     data: payload.data,
     skip_default_group_bind: payload.skip_default_group_bind
+  }, {
+    headers: { 'Idempotency-Key': idempotencyKey }
+  })
+  return data
+}
+
+/** Import account records for the current owner. Bundled proxies are ignored server-side. */
+export async function importSelfServiceData(payload: {
+  data: AdminDataPayload
+  skip_default_group_bind?: boolean
+}, idempotencyKey: string): Promise<AdminDataImportResult> {
+  const { data } = await apiClient.post<AdminDataImportResult>('/admin/accounts/import/data', {
+    ...payload,
+    skip_default_group_bind: true
+  }, {
+    headers: { 'Idempotency-Key': idempotencyKey }
   })
   return data
 }
@@ -933,6 +949,7 @@ export const accountsAPI = {
   syncFromCrs,
   exportData,
   importData,
+  importSelfServiceData,
   importCodexSession,
   createOpenAICodexPAT,
   getAntigravityDefaultModelMapping,

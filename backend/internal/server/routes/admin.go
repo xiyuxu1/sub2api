@@ -366,6 +366,7 @@ func registerAccountRoutes(accounts *gin.RouterGroup, h *handler.Handlers, stepU
 		accounts.POST("/:id/duplicate", h.Admin.Account.Duplicate)
 		accounts.POST("/check-mixed-channel", h.Admin.Account.CheckMixedChannel)
 		accounts.POST("/import/codex-session", h.Admin.Account.ImportCodexSession)
+		accounts.POST("/import/data", h.Admin.Account.ImportSelfServiceData)
 		accounts.POST("/sync/crs", h.Admin.Account.SyncFromCRS)
 		accounts.POST("/sync/crs/preview", h.Admin.Account.PreviewFromCRS)
 		accounts.PUT("/:id", h.Admin.Account.Update)
@@ -434,8 +435,6 @@ func registerOpenAIOAuthRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	openai := admin.Group("/openai")
 	{
 		openai.POST("/accounts/:id/refresh", h.Admin.OpenAIOAuth.RefreshAccountToken)
-		openai.POST("/create-from-oauth", h.Admin.OpenAIOAuth.CreateAccountFromOAuth)
-		openai.POST("/create-from-codex-pat", h.Admin.OpenAIOAuth.CreateAccountFromCodexPAT)
 		openai.POST("/accounts/:id/reset-quota", h.Admin.OpenAIOAuth.ResetQuota)
 	}
 }
@@ -451,8 +450,6 @@ func registerAntigravityOAuthRoutes(admin *gin.RouterGroup, h *handler.Handlers)
 func registerGrokOAuthRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	grok := admin.Group("/grok")
 	{
-		grok.POST("/oauth/create-from-oauth", h.Admin.GrokOAuth.CreateAccountFromOAuth)
-		grok.POST("/sso-to-oauth", h.Admin.GrokOAuth.CreateAccountsFromSSO)
 		grok.POST("/oauth/reconcile", h.Admin.GrokOAuth.ReconcileOAuthAccounts)
 		grok.POST("/accounts/:id/refresh", h.Admin.GrokOAuth.RefreshAccountToken)
 		grok.POST("/accounts/:id/reset-quota", h.Admin.GrokOAuth.ResetQuota)
@@ -465,6 +462,8 @@ func registerAccountOAuthSelfServiceRoutes(authenticated *gin.RouterGroup, h *ha
 	openai.POST("/generate-auth-url", h.Admin.OpenAIOAuth.GenerateAuthURL)
 	openai.POST("/exchange-code", h.Admin.OpenAIOAuth.ExchangeCode)
 	openai.POST("/refresh-token", h.Admin.OpenAIOAuth.RefreshToken)
+	openai.POST("/create-from-oauth", h.Admin.OpenAIOAuth.CreateAccountFromOAuth)
+	openai.POST("/create-from-codex-pat", h.Admin.OpenAIOAuth.CreateAccountFromCodexPAT)
 	openai.GET("/accounts/:id/quota", h.Admin.OpenAIOAuth.QueryQuota)
 
 	gemini := authenticated.Group("/gemini")
@@ -481,6 +480,8 @@ func registerAccountOAuthSelfServiceRoutes(authenticated *gin.RouterGroup, h *ha
 	grok.POST("/oauth/auth-url", h.Admin.GrokOAuth.GenerateAuthURL)
 	grok.POST("/oauth/exchange-code", h.Admin.GrokOAuth.ExchangeCode)
 	grok.POST("/oauth/refresh-token", h.Admin.GrokOAuth.RefreshToken)
+	grok.POST("/oauth/create-from-oauth", h.Admin.GrokOAuth.CreateAccountFromOAuth)
+	grok.POST("/sso-to-oauth", h.Admin.GrokOAuth.CreateAccountsFromSSO)
 	grok.GET("/accounts/:id/quota", h.Admin.GrokOAuth.QueryQuota)
 }
 

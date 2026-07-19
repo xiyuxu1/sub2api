@@ -240,5 +240,8 @@ describe('admin AccountsView usage windows hint', () => {
     expect(columns.map(column => column.key)).not.toEqual(expect.arrayContaining([
       'select', 'schedulable', 'upstream_billing_rate'
     ]))
+
+    await wrapper.get('button[title="admin.accounts.moreActions"]').trigger('click')
+    expect(wrapper.find('[data-test="import-account-data"]').exists()).toBe(true)
   })
 })
