@@ -89,3 +89,57 @@ cd ../frontend && pnpm build   # 或 npm，按仓库为准
 - 认同选 A；否决"替换 AdminOnly / 复用 admin CRUD"，改用独立 `/self` + 独立脱敏 DTO + service 层原子授权。
 - 一个中间件不足以做授权边界，必须下沉到 service/repo 并覆盖 OAuth/导入/批量/关联 ID。
 - （Codex 原建议 `is_public` 默认 false、owner 加重防护——本项目因"都是朋友、不收费"**主动放宽为默认 true、owner 从简**，属知情取舍。）
+
+## 7. 构建镜像 & 部署到服务器（务必读——踩过大坑）
+
+> ⛔ **绝对不要在生产服务器上 `docker build`。** 2026-07 试过一次：国内 4 核 4G 生产机跑镜像构建，Go 编译 + 前端构建并行吃光内存，把线上容器和 SSH 全拖垮，生产中断十几分钟，最后只能腾讯云控制台**强制重启**才救回。构建是给 16G 的 CI 机器干的，不是生产机。
+
+### 7.1 构建：只用 GitHub Actions（免费、16G、不碰你服务器）
+镜像由 fork 自带的 `.github/workflows/release.yml`（GoReleaser + `.goreleaser.simple.yaml`）构建并推到 GHCR。触发方式（**tag 必须真实存在，否则 release job 报 "tag could not be found"**；tag push 本身有时不触发 workflow，用 workflow_dispatch 最稳）：
+```bash
+cd /Users/xudelong/mine/sub2api/sub2api
+# 1) 确保 fork 仓库变量 SIMPLE_RELEASE=true（只出 x86_64 GHCR 镜像，一次即可）
+gh variable set SIMPLE_RELEASE --body true --repo xiyuxu1/sub2api
+# 2) 打并推 tag（GoReleaser 会去掉 v 前缀 → 镜像 tag 无 v）
+git tag -f v0.1.161-xdl1 <commit> && git push -f origin v0.1.161-xdl1
+# 3) 触发构建（约 5 分钟）
+gh workflow run release.yml --repo xiyuxu1/sub2api --ref xdl/self-service -f tag=v0.1.161-xdl1 -f simple_release=true
+gh run watch <run-id> --repo xiyuxu1/sub2api
+# 产物：ghcr.io/xiyuxu1/sub2api:0.1.161-xdl1（tag 无 v 前缀！）
+```
+⚠️ **别把本机 pnpm 产物提交进去**：本机 pnpm 是 11，会重写 `frontend/pnpm-lock.yaml` 并生成一个坏的 `frontend/pnpm-workspace.yaml`（内容是占位符 `set this to true or false`），导致 CI 的 pnpm@9 `--frozen-lockfile` 报 `packages field missing`。lockfile 保持上游原样、`pnpm-workspace.yaml` 不该存在。
+
+### 7.2 GHCR 包必须是 public
+`ghcr.io/xiyuxu1/sub2api` 这个 container package 要在 GitHub 上设为 **public**（Packages → 该包 → Package settings → Change visibility → Public）。镜像里无任何密钥（`.env`/证书被 `.gitignore`+`.dockerignore` 双重排除），公开安全。否则服务器拉不了（token 需 `read:packages`，且不该把带 `repo` 权限的 token 放生产机）。
+
+### 7.3 拉镜像：走南京大学 GHCR 镜像站（国内直连 ghcr.io 只有 ~40KB/s，龟速）
+国内直连 `ghcr.io` 被限速到几十 KB/s（240MB 要一小时）；用南大镜像站 `ghcr.nju.edu.cn` 秒下。**且 `docker pull` 经 SSH 会莫名丢输出/被 SSH 断连带死——必须用 `systemd-run` 把拉取跑成独立系统服务，与 SSH 解耦：**
+```bash
+ssh ubuntu@115.159.205.56
+V=0.1.161-xdl1
+sudo systemd-run --unit=njupull --collect /usr/bin/docker pull ghcr.nju.edu.cn/xiyuxu1/sub2api:$V
+# 轮询直到 inactive；确认镜像到位
+sudo journalctl -u njupull -n 5 --no-pager; docker images ghcr.nju.edu.cn/xiyuxu1/sub2api --format '{{.Tag}} {{.Size}}'
+# 改名成 compose 用的规范名
+docker tag ghcr.nju.edu.cn/xiyuxu1/sub2api:$V ghcr.io/xiyuxu1/sub2api:$V
+```
+
+### 7.4 切镜像地址 + 部署（国内节点，带秒回滚）
+生产 compose 的镜像行**默认是 `weishaw/sub2api:latest`（上游官方）**；改成你的 fork 镜像即完成"切镜像地址"：
+```bash
+cd ~/sub2api-deploy
+cp docker-compose.yml docker-compose.yml.bak-$(date +%F)          # 备份，回滚用
+docker exec sub2api-postgres pg_dump -U <PGUSER> -d <PGDB> | gzip > backups/predeploy-$(date +%F-%H%M).sql.gz  # 备份库
+# 切镜像地址：weishaw/sub2api:latest → ghcr.io/xiyuxu1/sub2api:<V>
+sed -i "s#image: weishaw/sub2api:latest#image: ghcr.io/xiyuxu1/sub2api:$V#" docker-compose.yml
+docker compose up -d sub2api          # 重建容器；新容器启动时自动跑 ApplyMigrations（含 9000_xdl 迁移）
+docker compose ps; curl -s localhost:8080/health; docker compose logs --tail=50 sub2api | grep -iE "migrat|9000|error"
+```
+**回滚**（若异常）：把 image 行改回 `weishaw/sub2api:latest`（或上一个 fork tag），`docker compose up -d sub2api`。旧镜像和 compose 备份都在本地。
+> ⚠️ **版本别降级**：部署前对比 `docker inspect sub2api --format '{{index .Config.Labels "org.opencontainers.image.version"}}'`（生产当前版本）与你的镜像版本。fork 分支必须先合并到 ≥ 生产版本的上游，否则老代码撞新库有风险。
+
+### 7.5 部署后验证 owner 收口（用普通用户 token）
+- 普通用户 `GET /api/v1/admin/accounts` → 只返回自己的（不是 403、也不含别人的）。
+- 普通用户按 id 访问/改/删别人的账号 → 404。
+- 普通用户建号 → 自动归属自己、不进任何分组、`schedulable=false`（惰性，等 admin 审核进池）。
+- admin 后台不受影响，能看到全部账号。
