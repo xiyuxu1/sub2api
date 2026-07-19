@@ -58,6 +58,10 @@ type Account struct {
 
 	ParentAccountID *int64 // non-nil → 影子账号（不持凭据，透传母账号凭据）
 	QuotaDimension  string // 用量维度："" / "global" / "spark"
+	OwnerUserID     *int64 // fork: 非 nil 表示账号由该普通用户创建或导入
+	// InheritOwnerOnCreate 仅用于 Spark 等派生账号，区分“显式继承 owner=NULL/IsPublic=false”
+	// 与普通管理员建号时的零值（由数据库提供 IsPublic 默认值）。
+	InheritOwnerOnCreate bool
 
 	// fork: 管理可见性。true = 其他普通用户可在"公开账号"里看到（只读白名单摘要）。
 	// 非 admin 建号默认 false（opt-in）；owner 可自助在"我的账号"里翻转。见 fork-docs/README.md §8.2。

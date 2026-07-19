@@ -79,7 +79,7 @@ type UserListFilters struct {
 	// nil means not specified (default: load subscriptions for backward compatibility).
 	IncludeSubscriptions *bool
 	// IncludeDeleted 为 true 时绕过软删除过滤，返回含已删除（deleted_at 非空）的用户。
-	// 仅供 /admin/usage 的 SearchUsers 端点使用，其他列表调用方不要设置。
+	// 仅供管理员审计和需要完整历史身份的筛选场景使用。
 	IncludeDeleted bool
 }
 

@@ -7,6 +7,8 @@
             v-model:searchQuery="params.search"
             :filters="params"
             :groups="groups"
+            :users="ownerFilterUsers"
+            :show-owner-filter="!isSelfService"
             @update:filters="(newFilters) => Object.assign(params, newFilters)"
             @change="debouncedReload"
             @update:searchQuery="debouncedReload"
@@ -215,6 +217,23 @@
           </template>
           <template #cell-id="{ value }">
             <span class="font-mono text-xs text-gray-500 dark:text-gray-400">#{{ value }}</span>
+          </template>
+          <template #cell-owner="{ row }">
+            <div v-if="row.owner_user_id" class="flex min-w-0 flex-col">
+              <span class="max-w-[180px] truncate text-sm font-medium text-gray-900 dark:text-white">
+                {{ ownerDisplayName(row.owner_user_id) }}
+              </span>
+              <span
+                v-if="ownerEmail(row.owner_user_id)"
+                class="max-w-[200px] truncate text-xs text-gray-500 dark:text-gray-400"
+                :title="ownerEmail(row.owner_user_id)"
+              >
+                {{ ownerEmail(row.owner_user_id) }}
+              </span>
+            </div>
+            <span v-else class="text-sm text-gray-500 dark:text-gray-400">
+              {{ t('admin.accounts.owner.system') }}
+            </span>
           </template>
           <template #cell-name="{ row, value }">
             <div class="flex flex-col">
@@ -522,7 +541,7 @@ import { formatDateTime, formatRelativeTime } from '@/utils/format'
 import { proxyExpiryBadgeClass, proxyExpiryLabelKey } from '@/utils/proxyExpiry'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import { sanitizeUrl } from '@/utils/url'
-import type { Account, AccountPlatform, AccountSchedulerGroupScore, AccountType, Proxy as AccountProxy, AdminGroup, WindowStats, ClaudeModel, UpstreamBillingProbeSnapshot } from '@/types'
+import type { Account, AccountPlatform, AccountSchedulerGroupScore, AccountType, Proxy as AccountProxy, AdminGroup, AdminUser, WindowStats, ClaudeModel, UpstreamBillingProbeSnapshot } from '@/types'
 
 const { t } = useI18n()
 const props = withDefaults(defineProps<{ selfService?: boolean }>(), { selfService: false })
@@ -532,6 +551,10 @@ const authStore = useAuthStore()
 
 const proxies = ref<AccountProxy[]>([])
 const groups = ref<AdminGroup[]>([])
+const ownerUsers = reactive(new Map<number, AdminUser | null>())
+const ownerFilterUsers = ref<AdminUser[]>([])
+const loadingOwnerUserIDs = new Set<number>()
+let ownerDirectoryLoadPromise: Promise<void> | null = null
 const accountTableRef = ref<HTMLElement | null>(null)
 const dataTableRef = ref<InstanceType<typeof DataTable> | null>(null)
 type AccountBulkEditTarget =
@@ -550,6 +573,7 @@ type AccountBulkEditTarget =
         group?: string
         search?: string
         privacy_mode?: string
+        owner?: string
         sort_by?: string
         sort_order?: AccountSortOrder
       }
@@ -906,6 +930,7 @@ const {
     type: '',
     status: '',
     privacy_mode: '',
+    owner: '',
     group: '',
     search: '',
     include_scheduler_score: shouldIncludeSchedulerScore() ? '1' : '0',
@@ -1388,6 +1413,7 @@ const allColumns = computed(() => {
   ]
   if (!props.selfService) {
     c.unshift({ key: 'select', label: '', sortable: false })
+    c.splice(3, 0, { key: 'owner', label: t('admin.accounts.columns.owner'), sortable: false })
     c.splice(c.length - 1, 0, { key: 'schedulable', label: t('admin.accounts.columns.schedulable'), sortable: true })
   } else {
     c.splice(c.length - 1, 0, { key: 'visibility', label: t('myAccounts.visibility'), sortable: false })
@@ -1412,6 +1438,58 @@ const allColumns = computed(() => {
   }
   return c
 })
+
+const ownerDisplayName = (ownerUserID: number): string => {
+  const owner = ownerUsers.get(ownerUserID)
+  if (!owner) return t('admin.accounts.owner.unknown', { id: ownerUserID })
+  const name = owner.username || owner.email
+  return owner.deleted_at ? t('admin.accounts.owner.deleted', { name }) : name
+}
+
+const ownerEmail = (ownerUserID: number): string => ownerUsers.get(ownerUserID)?.email || ''
+
+const loadAccountOwners = async (rows: Account[]) => {
+  if (props.selfService) return
+  await ownerDirectoryLoadPromise
+  const ownerUserIDs = [...new Set(
+    rows.map(row => row.owner_user_id).filter((id): id is number => typeof id === 'number')
+  )].filter(id => !ownerUsers.has(id) && !loadingOwnerUserIDs.has(id))
+  if (ownerUserIDs.length === 0) return
+
+  await Promise.all(ownerUserIDs.map(async id => {
+    loadingOwnerUserIDs.add(id)
+    try {
+      ownerUsers.set(id, await adminAPI.users.getById(id, true))
+    } catch {
+      ownerUsers.set(id, null)
+    } finally {
+      loadingOwnerUserIDs.delete(id)
+    }
+  }))
+}
+
+const loadOwnerFilterUsers = async () => {
+  if (props.selfService) return
+  const users: AdminUser[] = []
+  let page = 1
+  let pages = 1
+  do {
+    const result = await adminAPI.users.list(page, 100, {
+      role: 'user',
+      include_deleted: true,
+      include_subscriptions: false,
+      sort_by: 'username',
+      sort_order: 'asc'
+    })
+    users.push(...result.items)
+    pages = result.pages
+    page++
+  } while (page <= pages)
+  ownerFilterUsers.value = users
+  users.forEach(user => ownerUsers.set(user.id, user))
+}
+
+watch(accounts, rows => { void loadAccountOwners(rows) })
 
 // Columns that can be toggled (exclude select, name, and actions)
 const toggleableColumns = computed(() =>
@@ -1674,6 +1752,7 @@ const buildBulkEditFilterSnapshot = () => {
     group: typeof rawParams.group === 'string' ? rawParams.group : '',
     search: typeof rawParams.search === 'string' ? rawParams.search : '',
     privacy_mode: typeof rawParams.privacy_mode === 'string' ? rawParams.privacy_mode : '',
+    owner: typeof rawParams.owner === 'string' ? rawParams.owner : '',
     sort_by: typeof rawParams.sort_by === 'string' ? rawParams.sort_by : '',
     sort_order: sortOrder
   }
@@ -1724,6 +1803,7 @@ const buildAccountQueryFilters = () => ({
   status: params.status || '',
   group: params.group || '',
   privacy_mode: params.privacy_mode || '',
+  owner: params.owner || '',
   search: params.search || '',
   sort_by: sortState.sort_by,
   sort_order: sortState.sort_order
@@ -1758,6 +1838,11 @@ const accountMatchesCurrentFilters = (account: Account) => {
     } else if (!groupIds.includes(Number(filters.group))) {
       return false
     }
+  }
+  if (filters.owner === 'unassigned') {
+    if (account.owner_user_id != null) return false
+  } else if (filters.owner && account.owner_user_id !== Number(filters.owner)) {
+    return false
   }
   const privacyMode = typeof account.extra?.privacy_mode === 'string' ? account.extra.privacy_mode : ''
   if (filters.privacy_mode) {
@@ -2093,6 +2178,11 @@ const handleClickOutside = (event: MouseEvent) => {
 onMounted(async () => {
   load()
   if (!props.selfService) loadUpstreamBillingProbeGlobalState()
+  if (!props.selfService) {
+    ownerDirectoryLoadPromise = loadOwnerFilterUsers().catch(error => {
+      console.error('Failed to load account owners:', error)
+    })
+  }
   try {
     if (!props.selfService) {
       const [p, g] = await Promise.all([adminAPI.proxies.getAll(), adminAPI.groups.getAll()])

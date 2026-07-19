@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
@@ -16,7 +18,24 @@ var (
 )
 
 const AccountListGroupUngrouped int64 = -1
+const AccountListOwnerUnassigned int64 = -1
+const AccountListOwnerUnassignedFilter = "unassigned"
 const AccountPrivacyModeUnsetFilter = "__unset__"
+
+func ParseAccountListOwnerFilter(value string) (int64, error) {
+	switch value = strings.TrimSpace(value); value {
+	case "":
+		return 0, nil
+	case AccountListOwnerUnassignedFilter:
+		return AccountListOwnerUnassigned, nil
+	default:
+		ownerUserID, err := strconv.ParseInt(value, 10, 64)
+		if err != nil || ownerUserID <= 0 {
+			return 0, fmt.Errorf("invalid owner filter")
+		}
+		return ownerUserID, nil
+	}
+}
 
 // OAuthRefreshPageOptions describes one bounded, cursor-stable scan of OAuth
 // accounts. Candidate platforms are supplied by TokenRefreshService's refresher
@@ -67,13 +86,13 @@ type AccountRepository interface {
 	Delete(ctx context.Context, id int64) error
 
 	List(ctx context.Context, params pagination.PaginationParams) ([]Account, *pagination.PaginationResult, error)
-	ListWithFilters(ctx context.Context, params pagination.PaginationParams, platform, accountType, status, search string, groupID int64, privacyMode string) ([]Account, *pagination.PaginationResult, error)
+	ListWithFilters(ctx context.Context, params pagination.PaginationParams, platform, accountType, status, search string, groupID, ownerUserID int64, privacyMode string) ([]Account, *pagination.PaginationResult, error)
 	// ListPublicAccounts 返回其他人公开（is_public）的账号（fork）：调用者身份从 context 取，
 	// 仅返回不属于调用者且 is_public=true 的账号，供"公开账号"只读浏览。见 fork-docs/README.md §8.2。
 	ListPublicAccounts(ctx context.Context, params pagination.PaginationParams, platform, search string) ([]Account, *pagination.PaginationResult, error)
 	// ListAllWithFilters 返回符合过滤条件的全部账号（不分页），用于账号列表页
 	// 计算 OpenAI 调度分数的过滤范围池。
-	ListAllWithFilters(ctx context.Context, platform, accountType, status, search string, groupID int64, privacyMode string) ([]Account, error)
+	ListAllWithFilters(ctx context.Context, platform, accountType, status, search string, groupID, ownerUserID int64, privacyMode string) ([]Account, error)
 	ListByGroup(ctx context.Context, groupID int64) ([]Account, error)
 	ListActive(ctx context.Context) ([]Account, error)
 	ListByPlatform(ctx context.Context, platform string) ([]Account, error)

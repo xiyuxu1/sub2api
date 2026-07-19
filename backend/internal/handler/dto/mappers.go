@@ -265,6 +265,7 @@ func AccountFromServiceShallow(a *service.Account) *Account {
 		GroupIDs:                a.GroupIDs,
 		ParentAccountID:         a.ParentAccountID,
 		QuotaDimension:          a.QuotaDimension,
+		OwnerUserID:             a.OwnerUserID,
 		IsPublic:                a.IsPublic,
 	}
 

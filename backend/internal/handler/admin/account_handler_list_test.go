@@ -24,6 +24,8 @@ func setupAccountListRouter() (*gin.Engine, *stubAdminService) {
 
 func TestAccountHandlerListIncludesCreatedAt(t *testing.T) {
 	router, adminSvc := setupAccountListRouter()
+	ownerUserID := int64(42)
+	adminSvc.accounts[0].OwnerUserID = &ownerUserID
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/accounts?page=1&page_size=20&sort_by=created_at&sort_order=desc", nil)
@@ -35,13 +37,16 @@ func TestAccountHandlerListIncludesCreatedAt(t *testing.T) {
 	var payload struct {
 		Data struct {
 			Items []struct {
-				ID        int64  `json:"id"`
-				CreatedAt string `json:"created_at"`
+				ID          int64  `json:"id"`
+				OwnerUserID *int64 `json:"owner_user_id"`
+				CreatedAt   string `json:"created_at"`
 			} `json:"items"`
 		} `json:"data"`
 	}
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &payload))
 	require.Len(t, payload.Data.Items, 1)
+	require.NotNil(t, payload.Data.Items[0].OwnerUserID)
+	require.Equal(t, ownerUserID, *payload.Data.Items[0].OwnerUserID)
 
 	createdAt := payload.Data.Items[0].CreatedAt
 	require.NotEmpty(t, createdAt)
@@ -50,6 +55,41 @@ func TestAccountHandlerListIncludesCreatedAt(t *testing.T) {
 	require.NoError(t, err)
 	_, offset := parsed.Zone()
 	require.Equal(t, 0, offset)
+}
+
+func TestAccountHandlerListParsesOwnerFilter(t *testing.T) {
+	tests := []struct {
+		name        string
+		owner       string
+		wantOwnerID int64
+	}{
+		{name: "all owners", owner: "", wantOwnerID: 0},
+		{name: "system or admin owned", owner: service.AccountListOwnerUnassignedFilter, wantOwnerID: service.AccountListOwnerUnassigned},
+		{name: "specific user", owner: "42", wantOwnerID: 42},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			router, adminSvc := setupAccountListRouter()
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/accounts?owner="+tt.owner, nil)
+
+			router.ServeHTTP(rec, req)
+
+			require.Equal(t, http.StatusOK, rec.Code)
+			require.Equal(t, tt.wantOwnerID, adminSvc.lastListAccounts.ownerUserID)
+		})
+	}
+}
+
+func TestAccountHandlerListRejectsInvalidOwnerFilter(t *testing.T) {
+	router, _ := setupAccountListRouter()
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/accounts?owner=invalid", nil)
+
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
 func TestAccountHandlerListReturnsSchedulerScoresPerGroup(t *testing.T) {

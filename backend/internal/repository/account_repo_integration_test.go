@@ -170,6 +170,50 @@ func (s *AccountRepoSuite) TestCreate() {
 	s.Require().Equal("test-create", got.Name)
 }
 
+func (s *AccountRepoSuite) TestCreate_PersistsExplicitDerivedOwner() {
+	ownerUserID := int64(42)
+	account := &service.Account{
+		Name:                 "derived-owned-account",
+		Platform:             service.PlatformOpenAI,
+		Type:                 service.AccountTypeOAuth,
+		Status:               service.StatusActive,
+		Credentials:          map[string]any{},
+		Extra:                map[string]any{},
+		OwnerUserID:          &ownerUserID,
+		IsPublic:             false,
+		InheritOwnerOnCreate: true,
+	}
+
+	err := s.repo.Create(s.ctx, account)
+	s.Require().NoError(err)
+
+	got, err := s.repo.GetByID(s.ctx, account.ID)
+	s.Require().NoError(err)
+	s.Require().Equal(&ownerUserID, got.OwnerUserID)
+	s.Require().False(got.IsPublic)
+}
+
+func (s *AccountRepoSuite) TestCreate_PersistsExplicitUnassignedPrivateVisibility() {
+	account := &service.Account{
+		Name:                 "derived-unassigned-private-account",
+		Platform:             service.PlatformOpenAI,
+		Type:                 service.AccountTypeOAuth,
+		Status:               service.StatusActive,
+		Credentials:          map[string]any{},
+		Extra:                map[string]any{},
+		IsPublic:             false,
+		InheritOwnerOnCreate: true,
+	}
+
+	err := s.repo.Create(s.ctx, account)
+	s.Require().NoError(err)
+
+	got, err := s.repo.GetByID(s.ctx, account.ID)
+	s.Require().NoError(err)
+	s.Require().Nil(got.OwnerUserID)
+	s.Require().False(got.IsPublic)
+}
+
 func (s *AccountRepoSuite) TestGetByID_NotFound() {
 	_, err := s.repo.GetByID(s.ctx, 999999)
 	s.Require().Error(err, "expected error for non-existent ID")
@@ -405,6 +449,7 @@ func (s *AccountRepoSuite) TestListWithFilters() {
 		status      string
 		search      string
 		groupID     int64
+		ownerUserID int64
 		privacyMode string
 		wantCount   int
 		validate    func(accounts []service.Account)
@@ -568,6 +613,34 @@ func (s *AccountRepoSuite) TestListWithFilters() {
 			},
 		},
 		{
+			name: "filter_by_specific_owner",
+			setup: func(client *dbent.Client) {
+				owned := mustCreateAccount(s.T(), client, &service.Account{Name: "owned-account"})
+				mustCreateAccount(s.T(), client, &service.Account{Name: "system-account"})
+				err := client.Account.UpdateOneID(owned.ID).SetOwnerUserID(42).Exec(context.Background())
+				s.Require().NoError(err)
+			},
+			ownerUserID: 42,
+			wantCount:   1,
+			validate: func(accounts []service.Account) {
+				s.Require().Equal("owned-account", accounts[0].Name)
+			},
+		},
+		{
+			name: "filter_by_admin_owned",
+			setup: func(client *dbent.Client) {
+				owned := mustCreateAccount(s.T(), client, &service.Account{Name: "owned-account"})
+				mustCreateAccount(s.T(), client, &service.Account{Name: "system-account"})
+				err := client.Account.UpdateOneID(owned.ID).SetOwnerUserID(42).Exec(context.Background())
+				s.Require().NoError(err)
+			},
+			ownerUserID: service.AccountListOwnerUnassigned,
+			wantCount:   1,
+			validate: func(accounts []service.Account) {
+				s.Require().Equal("system-account", accounts[0].Name)
+			},
+		},
+		{
 			name: "filter_by_privacy_mode",
 			setup: func(client *dbent.Client) {
 				mustCreateAccount(s.T(), client, &service.Account{Name: "privacy-ok", Extra: map[string]any{"privacy_mode": service.PrivacyModeTrainingOff}})
@@ -605,7 +678,7 @@ func (s *AccountRepoSuite) TestListWithFilters() {
 
 			tt.setup(client)
 
-			accounts, page, err := repo.ListWithFilters(ctx, pagination.PaginationParams{Page: 1, PageSize: 10}, tt.platform, tt.accType, tt.status, tt.search, tt.groupID, tt.privacyMode)
+			accounts, page, err := repo.ListWithFilters(ctx, pagination.PaginationParams{Page: 1, PageSize: 10}, tt.platform, tt.accType, tt.status, tt.search, tt.groupID, tt.ownerUserID, tt.privacyMode)
 			s.Require().NoError(err)
 			s.Require().Len(accounts, tt.wantCount)
 			// Regression guard for issue #3601: when the whole result set fits on a single page,
@@ -677,7 +750,7 @@ func (s *AccountRepoSuite) TestPreload_And_VirtualFields() {
 	s.Require().Len(got.Groups, 1, "expected Groups to be populated")
 	s.Require().Equal(group.ID, got.Groups[0].ID)
 
-	accounts, page, err := s.repo.ListWithFilters(s.ctx, pagination.PaginationParams{Page: 1, PageSize: 10}, "", "", "", "acc", 0, "")
+	accounts, page, err := s.repo.ListWithFilters(s.ctx, pagination.PaginationParams{Page: 1, PageSize: 10}, "", "", "", "acc", 0, 0, "")
 	s.Require().NoError(err, "ListWithFilters")
 	s.Require().Equal(int64(1), page.Total)
 	s.Require().Len(accounts, 1)

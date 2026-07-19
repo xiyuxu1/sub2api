@@ -162,6 +162,12 @@ func createAccountRecord(ctx context.Context, client *dbent.Client, account *ser
 	if uid, ok := authctx.NonAdminOwner(ctx); ok {
 		builder.SetOwnerUserID(uid)
 		builder.SetIsPublic(false)
+	} else if account.InheritOwnerOnCreate {
+		// 管理员创建的派生账号（如 Spark 影子）可显式继承母账号归属。
+		// InheritOwnerOnCreate 让 owner=NULL + IsPublic=false 也能区别于普通管理员建号的默认值。
+		// 普通用户上下文始终走上面分支，不会接受调用方伪造的 owner。
+		builder.SetNillableOwnerUserID(account.OwnerUserID)
+		builder.SetIsPublic(account.IsPublic)
 	}
 
 	created, err := builder.Save(ctx)
@@ -758,10 +764,10 @@ func (r *accountRepository) Delete(ctx context.Context, id int64) error {
 }
 
 func (r *accountRepository) List(ctx context.Context, params pagination.PaginationParams) ([]service.Account, *pagination.PaginationResult, error) {
-	return r.ListWithFilters(ctx, params, "", "", "", "", 0, "")
+	return r.ListWithFilters(ctx, params, "", "", "", "", 0, 0, "")
 }
 
-func (r *accountRepository) accountListFilteredQuery(platform, accountType, status, search string, groupID int64, privacyMode string) *dbent.AccountQuery {
+func (r *accountRepository) accountListFilteredQuery(platform, accountType, status, search string, groupID, ownerUserID int64, privacyMode string) *dbent.AccountQuery {
 	q := r.client.Account.Query()
 
 	if platform != "" {
@@ -839,6 +845,11 @@ func (r *accountRepository) accountListFilteredQuery(platform, accountType, stat
 	} else if groupID > 0 {
 		q = q.Where(dbaccount.HasAccountGroupsWith(dbaccountgroup.GroupIDEQ(groupID)))
 	}
+	if ownerUserID == service.AccountListOwnerUnassigned {
+		q = q.Where(dbaccount.OwnerUserIDIsNil())
+	} else if ownerUserID > 0 {
+		q = q.Where(dbaccount.OwnerUserIDEQ(ownerUserID))
+	}
 	if privacyMode != "" {
 		q = q.Where(dbpredicate.Account(func(s *entsql.Selector) {
 			path := sqljson.Path("privacy_mode")
@@ -857,8 +868,8 @@ func (r *accountRepository) accountListFilteredQuery(platform, accountType, stat
 	return q
 }
 
-func (r *accountRepository) ListWithFilters(ctx context.Context, params pagination.PaginationParams, platform, accountType, status, search string, groupID int64, privacyMode string) ([]service.Account, *pagination.PaginationResult, error) {
-	q := r.accountListFilteredQuery(platform, accountType, status, search, groupID, privacyMode)
+func (r *accountRepository) ListWithFilters(ctx context.Context, params pagination.PaginationParams, platform, accountType, status, search string, groupID, ownerUserID int64, privacyMode string) ([]service.Account, *pagination.PaginationResult, error) {
+	q := r.accountListFilteredQuery(platform, accountType, status, search, groupID, ownerUserID, privacyMode)
 	// fork: 普通用户的列表只见【自己的】账号。
 	// 暂不含别人公开的账号——现有 DTO 的凭证脱敏不彻底（header_overrides/extra 会漏，外审 P1），
 	// 跨用户展示需要专门的字段白名单 DTO，留待"让同伴可见"功能再做。is_public 字段保留。
@@ -931,8 +942,8 @@ func (r *accountRepository) ListPublicAccounts(ctx context.Context, params pagin
 	return outAccounts, paginationResultFromTotal(int64(total), params), nil
 }
 
-func (r *accountRepository) ListAllWithFilters(ctx context.Context, platform, accountType, status, search string, groupID int64, privacyMode string) ([]service.Account, error) {
-	accounts, err := r.accountListFilteredQuery(platform, accountType, status, search, groupID, privacyMode).All(ctx)
+func (r *accountRepository) ListAllWithFilters(ctx context.Context, platform, accountType, status, search string, groupID, ownerUserID int64, privacyMode string) ([]service.Account, error) {
+	accounts, err := r.accountListFilteredQuery(platform, accountType, status, search, groupID, ownerUserID, privacyMode).All(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -3214,6 +3225,7 @@ func accountEntityToService(m *dbent.Account) *service.Account {
 		SessionWindowStatus:     derefString(m.SessionWindowStatus),
 		ParentAccountID:         m.ParentAccountID,
 		QuotaDimension:          string(m.QuotaDimension),
+		OwnerUserID:             m.OwnerUserID,
 		IsPublic:                m.IsPublic,
 	}
 }

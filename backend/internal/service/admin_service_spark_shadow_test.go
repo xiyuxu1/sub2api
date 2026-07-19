@@ -113,7 +113,7 @@ func (s *sparkShadowRepoStub) BatchUpdateLastUsed(_ context.Context, _ map[int64
 func (s *sparkShadowRepoStub) ListByGroup(_ context.Context, _ int64) ([]Account, error) {
 	return nil, nil
 }
-func (s *sparkShadowRepoStub) ListWithFilters(_ context.Context, _ pagination.PaginationParams, _, _, _, _ string, _ int64, _ string) ([]Account, *pagination.PaginationResult, error) {
+func (s *sparkShadowRepoStub) ListWithFilters(_ context.Context, _ pagination.PaginationParams, _, _, _, _ string, _, _ int64, _ string) ([]Account, *pagination.PaginationResult, error) {
 	return nil, nil, nil
 }
 
@@ -127,12 +127,15 @@ func TestCreateShadow(t *testing.T) {
 	svc := &adminServiceImpl{accountRepo: repo}
 
 	proxyID := int64(7)
+	ownerUserID := int64(42)
 	parent := &Account{
-		Name:     "p",
-		Platform: PlatformOpenAI,
-		Type:     AccountTypeOAuth,
-		Status:   StatusActive,
-		ProxyID:  &proxyID,
+		Name:        "p",
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeOAuth,
+		Status:      StatusActive,
+		ProxyID:     &proxyID,
+		OwnerUserID: &ownerUserID,
+		IsPublic:    false,
 		Credentials: map[string]any{
 			"refresh_token":      "RT",
 			"chatgpt_account_id": "org-x",
@@ -151,10 +154,31 @@ func TestCreateShadow(t *testing.T) {
 	require.Nil(t, shadow.Credentials["refresh_token"], "影子不得持有 auth token")
 	require.Nil(t, shadow.Credentials["access_token"], "影子不得持有 auth token")
 	require.Equal(t, parent.ProxyID, shadow.ProxyID)
+	require.Equal(t, parent.OwnerUserID, shadow.OwnerUserID)
+	require.Equal(t, parent.IsPublic, shadow.IsPublic)
+	require.True(t, shadow.InheritOwnerOnCreate)
 
 	// Test 2: 一母一影 — 再作成は拒否
 	_, err = svc.CreateShadow(ctx, parent.ID, ShadowOptions{Name: "dup"})
 	require.Error(t, err)
+}
+
+func TestCreateShadowExplicitlyInheritsUnassignedPrivateVisibility(t *testing.T) {
+	ctx := context.Background()
+	repo := newSparkShadowRepoStub()
+	svc := &adminServiceImpl{accountRepo: repo}
+	parent := &Account{
+		Name: "private-system-parent", Platform: PlatformOpenAI, Type: AccountTypeOAuth,
+		Status: StatusActive, IsPublic: false,
+		Credentials: map[string]any{"chatgpt_account_id": "org-private"},
+	}
+	require.NoError(t, repo.Create(ctx, parent))
+
+	shadow, err := svc.CreateShadow(ctx, parent.ID, ShadowOptions{Name: "private-system-shadow"})
+	require.NoError(t, err)
+	require.Nil(t, shadow.OwnerUserID)
+	require.False(t, shadow.IsPublic)
+	require.True(t, shadow.InheritOwnerOnCreate)
 }
 
 func TestCreateShadowInheritsParentEffectiveOpenAILongContextBillingValue(t *testing.T) {

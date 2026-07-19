@@ -131,11 +131,12 @@ func (h *UserHandler) List(c *gin.Context) {
 	}
 
 	filters := service.UserListFilters{
-		Status:     c.Query("status"),
-		Role:       c.Query("role"),
-		Search:     search,
-		GroupName:  strings.TrimSpace(c.Query("group_name")),
-		Attributes: parseAttributeFilters(c),
+		Status:         c.Query("status"),
+		Role:           c.Query("role"),
+		Search:         search,
+		GroupName:      strings.TrimSpace(c.Query("group_name")),
+		Attributes:     parseAttributeFilters(c),
+		IncludeDeleted: c.Query("include_deleted") == "true",
 	}
 	if raw := strings.TrimSpace(c.Query("api_key_group_id")); raw != "" {
 		if id, parseErr := strconv.ParseInt(raw, 10, 64); parseErr == nil && id > 0 {

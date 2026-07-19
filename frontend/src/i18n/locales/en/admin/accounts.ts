@@ -89,6 +89,8 @@ export default {
       allTypes: 'All Types',
       allStatus: 'All Status',
       allGroups: 'All Groups',
+      allOwners: 'All Owners',
+      systemOwnedAccounts: 'System/Admin Accounts',
       ungroupedGroup: 'Ungrouped',
       oauthType: 'OAuth',
       setupToken: 'Setup Token',
@@ -148,6 +150,7 @@ export default {
       columns: {
         name: 'Name',
         id: 'Account ID',
+        owner: 'Owner',
         platformType: 'Platform/Type',
         platform: 'Platform',
         type: 'Type',
@@ -168,6 +171,11 @@ export default {
         createdAt: 'Created',
         expiresAt: 'Expires At',
         actions: 'Actions'
+      },
+      owner: {
+        system: 'System/Admin',
+        unknown: 'User #{id}',
+        deleted: '{name} (deleted)'
       },
       schedulerScore: {
         baseShort: 'Base',

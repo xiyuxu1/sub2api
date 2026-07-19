@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { post } = vi.hoisted(() => ({
+const { get, post } = vi.hoisted(() => ({
+  get: vi.fn(),
   post: vi.fn(),
 }))
 
 vi.mock('@/api/client', () => ({
   apiClient: {
+    get,
     post,
   },
 }))
@@ -13,6 +15,7 @@ vi.mock('@/api/client', () => ({
 import {
   batchUpdateLimits,
   bindUserAuthIdentity,
+  list,
   type AdminBindAuthIdentityRequest,
   type AdminBoundAuthIdentity,
   type BatchUpdateUserLimitsRequest,
@@ -83,6 +86,7 @@ const batchResponseContractExact: Assert<
 
 describe('admin users api auth identity binding', () => {
   beforeEach(() => {
+    get.mockReset()
     post.mockReset()
   })
 
@@ -146,5 +150,30 @@ describe('admin users api auth identity binding', () => {
     expect(result).toEqual({ affected: 2 })
     expect(batchRequestContractExact).toBe(true)
     expect(batchResponseContractExact).toBe(true)
+  })
+
+  it('forwards deleted-user and lightweight-list options for owner filters', async () => {
+    get.mockResolvedValue({ data: { items: [], total: 0, page: 1, page_size: 100, pages: 0 } })
+
+    await list(1, 100, {
+      role: 'user',
+      include_deleted: true,
+      include_subscriptions: false,
+      sort_by: 'username',
+      sort_order: 'asc',
+    })
+
+    expect(get).toHaveBeenCalledWith('/admin/users', {
+      params: expect.objectContaining({
+        page: 1,
+        page_size: 100,
+        role: 'user',
+        include_deleted: true,
+        include_subscriptions: false,
+        sort_by: 'username',
+        sort_order: 'asc',
+      }),
+      signal: undefined,
+    })
   })
 })

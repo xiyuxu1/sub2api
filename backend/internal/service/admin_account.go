@@ -21,9 +21,9 @@ import (
 )
 
 // Account management implementations
-func (s *adminServiceImpl) ListAccounts(ctx context.Context, page, pageSize int, platform, accountType, status, search string, groupID int64, privacyMode string, sortBy, sortOrder string) ([]Account, int64, error) {
+func (s *adminServiceImpl) ListAccounts(ctx context.Context, page, pageSize int, platform, accountType, status, search string, groupID, ownerUserID int64, privacyMode string, sortBy, sortOrder string) ([]Account, int64, error) {
 	params := pagination.PaginationParams{Page: page, PageSize: pageSize, SortBy: sortBy, SortOrder: sortOrder}
-	accounts, result, err := s.accountRepo.ListWithFilters(ctx, params, platform, accountType, status, search, groupID, privacyMode)
+	accounts, result, err := s.accountRepo.ListWithFilters(ctx, params, platform, accountType, status, search, groupID, ownerUserID, privacyMode)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -39,11 +39,11 @@ func (s *adminServiceImpl) ListPublicAccounts(ctx context.Context, page, pageSiz
 	return accounts, result.Total, nil
 }
 
-func (s *adminServiceImpl) ListAccountsForSchedulerScoreFilter(ctx context.Context, platform, accountType, status, search string, groupID int64, privacyMode string) ([]Account, error) {
+func (s *adminServiceImpl) ListAccountsForSchedulerScoreFilter(ctx context.Context, platform, accountType, status, search string, groupID, ownerUserID int64, privacyMode string) ([]Account, error) {
 	if s == nil || s.accountRepo == nil {
 		return nil, nil
 	}
-	return s.accountRepo.ListAllWithFilters(ctx, platform, accountType, status, search, groupID, privacyMode)
+	return s.accountRepo.ListAllWithFilters(ctx, platform, accountType, status, search, groupID, ownerUserID, privacyMode)
 }
 
 func (s *adminServiceImpl) ListOpenAISchedulableAccountsForSchedulerScore(ctx context.Context, groupID *int64) ([]Account, error) {
@@ -1139,6 +1139,10 @@ func (s *adminServiceImpl) resolveBulkUpdateTargetIDs(ctx context.Context, filte
 		}
 		groupID = parsedGroupID
 	}
+	ownerUserID, err := ParseAccountListOwnerFilter(filters.Owner)
+	if err != nil {
+		return nil, err
+	}
 
 	const pageSize = 500
 	page := 1
@@ -1154,6 +1158,7 @@ func (s *adminServiceImpl) resolveBulkUpdateTargetIDs(ctx context.Context, filte
 			filters.Status,
 			filters.Search,
 			groupID,
+			ownerUserID,
 			filters.PrivacyMode,
 			"",
 			"",
@@ -1324,17 +1329,20 @@ func (s *adminServiceImpl) CreateShadow(ctx context.Context, parentID int64, opt
 		priority = parent.Priority
 	}
 	shadow := &Account{
-		Name:            name,
-		Platform:        PlatformOpenAI,
-		Type:            AccountTypeOAuth,
-		Status:          StatusActive,
-		Credentials:     map[string]any{"model_mapping": defaultSparkShadowModelMapping()},
-		ParentAccountID: &parentID,
-		QuotaDimension:  QuotaDimensionSpark,
-		ProxyID:         parent.ProxyID,
-		Priority:        priority,
-		Concurrency:     concurrency,
-		Schedulable:     true,
+		Name:                 name,
+		Platform:             PlatformOpenAI,
+		Type:                 AccountTypeOAuth,
+		Status:               StatusActive,
+		Credentials:          map[string]any{"model_mapping": defaultSparkShadowModelMapping()},
+		ParentAccountID:      &parentID,
+		QuotaDimension:       QuotaDimensionSpark,
+		ProxyID:              parent.ProxyID,
+		Priority:             priority,
+		Concurrency:          concurrency,
+		Schedulable:          true,
+		OwnerUserID:          parent.OwnerUserID,
+		IsPublic:             parent.IsPublic,
+		InheritOwnerOnCreate: true,
 		Extra: map[string]any{
 			openAILongContextBillingEnabledKey: parent.IsOpenAILongContextBillingEnabled(),
 		},

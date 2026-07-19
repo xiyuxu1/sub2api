@@ -92,6 +92,8 @@ export default {
       allTypes: '全部类型',
       allStatus: '全部状态',
       allGroups: '全部分组',
+      allOwners: '全部归属人',
+      systemOwnedAccounts: '系统/管理员账号',
       ungroupedGroup: '未分配分组',
       oauthType: 'OAuth',
       // Schedulable toggle
@@ -104,6 +106,7 @@ export default {
       columns: {
         name: '名称',
         id: '账号ID',
+        owner: '归属人',
         platformType: '平台/类型',
         platform: '平台',
         type: '类型',
@@ -124,6 +127,11 @@ export default {
         createdAt: '创建时间',
         expiresAt: '过期时间',
         actions: '操作'
+      },
+      owner: {
+        system: '系统/管理员',
+        unknown: '用户 #{id}',
+        deleted: '{name}（已删除）'
       },
       schedulerScore: {
         baseShort: '普通',

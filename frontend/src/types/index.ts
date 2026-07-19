@@ -1022,6 +1022,7 @@ export interface Account {
   // 影子账号关系（spark 维度影子）
   parent_account_id?: number | null
   quota_dimension?: string
+  owner_user_id?: number | null
   // 影子账号回填的母账号信息（仅影子非空）
   parent_email?: string
   parent_plan_type?: string

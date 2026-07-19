@@ -51,3 +51,20 @@ func TestAdminUserList_ParsesAPIKeyGroupID(t *testing.T) {
 		})
 	}
 }
+
+func TestAdminUserList_ParsesIncludeDeleted(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	stub := &listUsersFilterStub{AdminService: newStubAdminService()}
+	r := gin.New()
+	h := NewUserHandler(stub, nil, nil, nil, nil, nil, nil)
+	r.GET("/admin/users", h.List)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodGet, "/admin/users?include_deleted=true&include_subscriptions=false", nil)
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.True(t, stub.captured.IncludeDeleted)
+	require.NotNil(t, stub.captured.IncludeSubscriptions)
+	require.False(t, *stub.captured.IncludeSubscriptions)
+}

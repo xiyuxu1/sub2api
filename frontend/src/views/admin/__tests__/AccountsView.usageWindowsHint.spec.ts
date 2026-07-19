@@ -9,14 +9,18 @@ const {
   getBatchTodayStats,
   getSelfServiceOptions,
   getAllProxies,
-  getAllGroups
+  getAllGroups,
+  getUserById,
+  listUsers
 } = vi.hoisted(() => ({
   listAccounts: vi.fn(),
   listWithEtag: vi.fn(),
   getBatchTodayStats: vi.fn(),
   getSelfServiceOptions: vi.fn(),
   getAllProxies: vi.fn(),
-  getAllGroups: vi.fn()
+  getAllGroups: vi.fn(),
+  getUserById: vi.fn(),
+  listUsers: vi.fn()
 }))
 
 vi.mock('@/api/admin', () => ({
@@ -37,6 +41,10 @@ vi.mock('@/api/admin', () => ({
     },
     groups: {
       getAll: getAllGroups
+    },
+    users: {
+      getById: getUserById,
+      list: listUsers
     }
   }
 }))
@@ -138,6 +146,8 @@ describe('admin AccountsView usage windows hint', () => {
     getSelfServiceOptions.mockReset()
     getAllProxies.mockReset()
     getAllGroups.mockReset()
+    getUserById.mockReset()
+    listUsers.mockReset()
 
     listAccounts.mockResolvedValue({
       items: [],
@@ -158,6 +168,18 @@ describe('admin AccountsView usage windows hint', () => {
     })
     getAllProxies.mockResolvedValue([])
     getAllGroups.mockResolvedValue([])
+    getUserById.mockResolvedValue({
+      id: 42,
+      username: 'account-owner',
+      email: 'owner@example.com'
+    })
+    listUsers.mockResolvedValue({
+      items: [{ id: 42, username: 'account-owner', email: 'owner@example.com' }],
+      total: 1,
+      page: 1,
+      page_size: 100,
+      pages: 1
+    })
   })
 
   it('renders an explanatory tooltip next to the usage windows column header', async () => {
@@ -186,6 +208,30 @@ describe('admin AccountsView usage windows hint', () => {
     )).toBe(true)
     const columns = wrapper.getComponent(DataTableStub).props('columns') as Array<{ key: string; sortable: boolean }>
     expect(columns.find(column => column.key === 'upstream_billing_rate')?.sortable).toBe(true)
+  })
+
+  it('shows the owner column for admins and resolves owners on the current page', async () => {
+    listAccounts.mockResolvedValue({
+      items: [{ id: 101, owner_user_id: 42 }],
+      total: 1,
+      page: 1,
+      page_size: 20,
+      pages: 1
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const columns = wrapper.getComponent(DataTableStub).props('columns') as Array<{ key: string }>
+    expect(columns.map(column => column.key)).toContain('owner')
+    expect(listUsers).toHaveBeenCalledWith(1, 100, {
+      role: 'user',
+      include_deleted: true,
+      include_subscriptions: false,
+      sort_by: 'username',
+      sort_order: 'asc'
+    })
+    expect(getUserById).not.toHaveBeenCalled()
   })
 
   it('uses the complete account table in self-service mode without admin-only columns', async () => {
@@ -238,8 +284,10 @@ describe('admin AccountsView usage windows hint', () => {
       'visibility', 'today_stats', 'usage', 'proxy', 'priority', 'groups'
     ]))
     expect(columns.map(column => column.key)).not.toEqual(expect.arrayContaining([
-      'select', 'schedulable', 'upstream_billing_rate'
+      'select', 'owner', 'schedulable', 'upstream_billing_rate'
     ]))
+    expect(getUserById).not.toHaveBeenCalled()
+    expect(listUsers).not.toHaveBeenCalled()
 
     await wrapper.get('button[title="admin.accounts.moreActions"]').trigger('click')
     expect(wrapper.find('[data-test="import-account-data"]').exists()).toBe(true)
