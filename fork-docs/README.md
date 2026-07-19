@@ -154,11 +154,12 @@ docker compose ps; curl -s localhost:8080/health; docker compose logs --tail=50 
 - 分支已合并到上游 **0.1.161** + 账号 owner 收口改动，无降级。
 - **国内节点 `115.159.205.56` 已部署镜像 `ghcr.io/xiyuxu1/sub2api:0.1.161-xdl1`**（部署代码 = 合并提交，tag `v0.1.161-xdl1`）。迁移 `9000_xdl` 已应用，accounts/proxies/groups 三表 owner_user_id + is_public 列都在。健康正常。旧镜像 `weishaw/sub2api:latest` + compose/DB 备份都在，可回滚。
 - **账号自助（就地改 + owner 收口）已生效**：普通用户登录后左侧有「我的账号」页，复用管理员的 CreateAccountModal 导入（Claude OAuth + 手动填 key 可用），只看得到/能改删自己的号；建号自动归属自己、不进分组、schedulable=false（惰性，等 admin 审核进池）；admin 后台不受影响、看全部。经三轮 Codex 安全评审修过越权（P0 惰性建号 / 白名单收窄 / 列表只见自己 / duplicate·check-mixed-channel·scheduler_score 等旁路）。
+- **is_public「公开/私有」开关已上线**（2026-07-19，镜像 `0.1.161-xdl2`，提交 `2714d8258` / tag `v0.1.161-xdl2`）：详见 §8.2。国内节点已切到 xdl2，健康正常，三表 is_public/owner_user_id 列俱在，启动无错误。旧 xdl1 镜像 + compose/DB 备份都在，可回滚。
 
-### 8.2 已完成（代码就绪，**待重建镜像 + 部署**）：is_public「公开/私有」开关（B 方案）
+### 8.2 已完成【已上线国内生产 `0.1.161-xdl2`】：is_public「公开/私有」开关（B 方案）
 > 需求：账号"可选对别人是否可见"。已实现：owner 在「我的账号」每行翻转公开/私有；公开的号别人可在「公开账号」tab 只读浏览（严格白名单摘要）。安全前提兑现：跨用户展示走**只含 id/name/platform/type 的白名单 DTO**，绝不碰 credentials/extra/notes/error。
 >
-> **已落地改动**（2026-07-19，均在本机分支，未提交/未部署）：
+> **已落地改动**（2026-07-19，已提交 `2714d8258`、已推送、已上线 xdl2）：
 > - 后端：
 >   1. `service.Account` 加 `IsPublic bool`；ent mapper `accountEntityToService` 回填；`updateLockedAccount` 里 `SetIsPublic`（值由 UpdateAccount 从 owner 化 GetByID 回填/覆盖）。
 >   2. 非 admin 建号默认私有：`account_repo.go createAccountRecord` 非 admin 分支 `SetIsPublic(false)`（opt-in 公开；admin/系统号仍走 DB 默认 true）。
