@@ -5,7 +5,7 @@
 >
 > **新会话接手顺序**：先读 §8（当前进度与剩余待办）→ §5（git 身份/合并上游）→ §7（构建镜像 + 部署流程，踩过大坑）→ 需要背景再看 §1-§3。
 >
-> **当前一句话状态（2026-07-19）**：普通用户「我的账号」完整自助、OpenAI/Codex/Grok 创建流程、临时账号 JSON 导入，以及管理员账号列表的“归属人”展示与筛选均已随国内生产 `0.1.161-xdl6` 上线。线上容器健康，两个公网入口均正常。
+> **当前一句话状态（2026-07-20）**：定制分支已合并官方 `0.1.162`，普通用户「我的账号」完整自助、OpenAI/Codex/Grok 创建流程、临时账号 JSON 导入，以及管理员账号列表的“归属人”展示与筛选均已随国内生产 `0.1.162-xdl7` 上线。线上容器健康，两个公网入口均正常。
 
 ## 0. 一句话背景
 个人 + 几个**信任的朋友**拼车共用，把多个 Claude/Codex 订阅号聚合成统一 API。**不收费、不接支付**。生产部署在两台服务器（详见 `/Users/xudelong/mine/sub2api/` 下的运维手册与资产清单）。
@@ -215,3 +215,10 @@ docker compose ps; curl -s localhost:8080/health; docker compose logs --tail=50 
 - 拉镜像走南大镜像站 `ghcr.nju.edu.cn` + `systemd-run`（§7.3），直连 ghcr.io 龟速、且 docker pull 经 SSH 会被断连带死。
 - 别把本机 pnpm 产物（改动的 pnpm-lock.yaml / 生成的 pnpm-workspace.yaml）提交进去（§7.1）。
 - git 走 origin HTTPS（gh 活跃账号 xiyuxu1）；合并上游按 §5。
+
+### 8.6 官方 0.1.162 合并与国内生产部署
+
+- **已完成并上线（2026-07-20，国内生产 `0.1.162-xdl7`）**：`xdl/self-service` 合并官方 `0.1.162`，合并提交 `c9c6d3ccb`、tag `v0.1.162-xdl7`、GitHub Actions run `29753250700`。
+- 合并仅在 `frontend/src/views/admin/AccountsView.vue` 出现冲突；处理结果保留 self-service 对管理工具和代理 fallback 回退操作的隐藏，同时采用上游新版深色样式。上游新增 repository 测试夹具已补齐 fork 的 `owner_user_id` / `is_public` 两列。
+- 验证：全仓 Go 编译与 `go vet ./...` 通过；handler/admin、DTO、routes、owner 相关 service/repository 测试通过；全量 repository/service 测试仅受沙箱禁止 `miniredis` / `httptest` 监听本地端口影响；前端 17 个测试文件共 220 个用例、`vue-tsc` 和生产构建均通过。
+- 部署前备份时间戳 `2026-07-20-230555`；数据库 dump 约 9.2 MB，Compose 备份均在 `/home/ubuntu/sub2api-deploy/backups/`。生产镜像 revision `c9c6d3ccb`、health=`healthy`、重启次数 0；容器内 `/health`、`xiaoxu.xyz/health`、`xiyu.site:8443/health` 均通过（两个公网入口 HTTP 200）。
